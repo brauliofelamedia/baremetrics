@@ -9,6 +9,8 @@
         "php": "^8.2",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
+        "laravel/ui": "^4.6",
+        "spatie/laravel-permission": "^6.21",
         "stripe/stripe-php": "^17.5"
     },
     "require-dev": {
@@ -25,7 +27,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "app/Helpers/SystemHelper.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

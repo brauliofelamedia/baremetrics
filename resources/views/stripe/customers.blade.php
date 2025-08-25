@@ -1,281 +1,214 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stripe Customers - {{ config('app.name') }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-</head>
-<body class="bg-gray-100">
-    <div class="container mx-auto px-4 py-8" x-data="stripeCustomers()">
-        <div class="bg-white rounded-lg shadow-lg p-6">
-            <h1 class="text-3xl font-bold text-gray-800 mb-6">Customers de Stripe</h1>
-            
-            <!-- Botones de acción -->
-            <div class="flex flex-wrap gap-4 mb-6">
-                <button 
-                    @click="loadCustomers()" 
-                    :disabled="loading"
-                    class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                >
-                    <span x-show="!loading">Cargar Customers (Paginado)</span>
-                    <span x-show="loading">Cargando...</span>
-                </button>
-                
-                <button 
-                    @click="loadAllCustomers()" 
-                    :disabled="loading"
-                    class="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                >
-                    <span x-show="!loading">Cargar Todos los Customers</span>
-                    <span x-show="loading">Cargando...</span>
-                </button>
-                
-                <button 
-                    @click="showSearchForm = !showSearchForm" 
-                    class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                >
-                    Buscar por Email
-                </button>
-            </div>
+@extends('layouts.admin')
 
-            <!-- Formulario de búsqueda -->
-            <div x-show="showSearchForm" class="mb-6 p-4 bg-gray-50 rounded-lg">
-                <div class="flex gap-4">
-                    <input 
-                        type="email" 
-                        x-model="searchEmail" 
-                        placeholder="Ingresa el email del customer"
-                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                    <button 
-                        @click="searchCustomers()" 
-                        :disabled="loading || !searchEmail"
-                        class="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                    >
-                        Buscar
+@section('title', 'Clientes de Stripe')
+
+@section('content')
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title mb-0">Stripe</h3>
+        </div>
+        <div class="card-body">
+            <!-- Verificar si hay errores -->
+            @if(!$customers['success'])
+                <div class="alert alert-danger">
+                    <h5><i class="fas fa-exclamation-triangle me-2"></i>Error al conectar con Stripe</h5>
+                    <p class="mb-2">{{ $customers['error'] ?? 'Error desconocido' }}</p>
+                    <small class="text-muted">
+                        Por favor, verifica que las claves de Stripe estén configuradas correctamente en el archivo .env
+                    </small>
+                    <hr>
+                    <button class="btn btn-outline-danger btn-sm" onclick="window.location.reload()">
+                        <i class="fas fa-redo me-1"></i>Intentar de nuevo
                     </button>
                 </div>
-            </div>
-
-            <!-- Información de estado -->
-            <div class="mb-4">
-                <div x-show="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    <p><strong>Error:</strong> <span x-text="error"></span></p>
+            @elseif(empty($customers['data']))
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle me-2"></i>No hay clientes</h5>
+                    <p class="mb-0">No se encontraron clientes en tu cuenta de Stripe.</p>
                 </div>
-                
-                <div x-show="customers.length > 0" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
-                    <p><strong>Total de customers encontrados:</strong> <span x-text="customers.length"></span></p>
-                    <p x-show="hasMore"><strong>Nota:</strong> Hay más customers disponibles. Usa la paginación para ver más.</p>
+            @else
+                <!-- Información de resultados -->
+                <div class="alert alert-success" id="results-info">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Se encontraron <strong id="customer-count">{{ count($customers['data']) }}</strong> cliente(s) mostrados
+                    @if($pagination['has_more'])
+                        <span class="text-muted">(hay más disponibles)</span>
+                    @endif
                 </div>
-            </div>
 
-            <!-- Tabla de customers -->
-            <div x-show="customers.length > 0" class="overflow-x-auto">
-                <table class="min-w-full bg-white border border-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha de Creación</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        <template x-for="customer in customers" :key="customer.id">
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="customer.id"></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="customer.email"></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="customer.name || 'N/A'"></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="formatDate(customer.created)"></td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button 
-                                        @click="viewCustomer(customer.id)"
-                                        class="text-blue-600 hover:text-blue-900"
-                                    >
-                                        Ver Detalles
-                                    </button>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Paginación -->
-            <div x-show="hasMore && customers.length > 0" class="mt-6 flex justify-center">
-                <button 
-                    @click="loadMoreCustomers()" 
-                    :disabled="loading"
-                    class="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-                >
-                    <span x-show="!loading">Cargar Más</span>
-                    <span x-show="loading">Cargando...</span>
-                </button>
-            </div>
-
-            <!-- Modal para detalles del customer -->
-            <div x-show="showModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" x-transition>
-                <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
-                    <div class="mt-3">
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Detalles del Customer</h3>
-                        <div x-show="selectedCustomer" class="space-y-3">
-                            <div><strong>ID:</strong> <span x-text="selectedCustomer?.id"></span></div>
-                            <div><strong>Email:</strong> <span x-text="selectedCustomer?.email"></span></div>
-                            <div><strong>Nombre:</strong> <span x-text="selectedCustomer?.name || 'N/A'"></span></div>
-                            <div><strong>Descripción:</strong> <span x-text="selectedCustomer?.description || 'N/A'"></span></div>
-                            <div><strong>Fecha de Creación:</strong> <span x-text="formatDate(selectedCustomer?.created)"></span></div>
-                        </div>
-                        <div class="flex justify-end mt-6">
-                            <button 
-                                @click="showModal = false" 
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-                            >
-                                Cerrar
-                            </button>
-                        </div>
+                <!-- Loading indicator -->
+                <div id="loading-indicator" class="text-center" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
                     </div>
+                    <p class="mt-2">Cargando más clientes...</p>
                 </div>
-            </div>
+
+                <!-- Tabla de customers -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 180px;">ID</th>
+                                <th>Correo electrónico</th>
+                                <th>Nombre</th>
+                                <th>Balance</th>
+                                <th>Fecha de creación</th>
+                                <th style="width: 120px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="customers-table-body">
+                        <tbody id="customers-table-body">
+                            @foreach ($customers['data'] as $customer)
+                                <tr>
+                                    <td><code class="text-muted">{{ $customer['id'] }}</code></td>
+                                    <td>{{ $customer['email'] ?? 'Sin email' }}</td>
+                                    <td>{{ $customer['name'] ?? 'Sin nombre' }}</td>
+                                    <td>
+                                        @if(isset($customer['balance']) && $customer['balance'] != 0)
+                                            <span class="badge bg-{{ $customer['balance'] > 0 ? 'success' : 'danger' }}">
+                                                ${{ number_format($customer['balance'] / 100, 2) }}
+                                            </span>
+                                        @else
+                                            <span class="text-muted">$0.00</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if(isset($customer['created']))
+                                            {{ date('d/m/Y H:i', $customer['created']) }}
+                                        @else
+                                            <span class="text-muted">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('admin.stripe.customers.show', $customer['id']) }}" 
+                                           class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye me-1"></i>Ver
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Botón cargar más -->
+                @if($pagination['has_more'])
+                    <div class="text-center mt-3">
+                        <button id="load-more-btn" class="btn btn-primary" 
+                                data-starting-after="{{ $pagination['starting_after'] }}">
+                            <i class="fas fa-chevron-down me-1"></i>Cargar más clientes
+                        </button>
+                    </div>
+                @endif
+            @endif
         </div>
     </div>
+</div>
+@endsection
 
-    <script>
-        function stripeCustomers() {
-            return {
-                customers: [],
-                loading: false,
-                error: null,
-                hasMore: false,
-                lastCustomerId: null,
-                showSearchForm: false,
-                searchEmail: '',
-                showModal: false,
-                selectedCustomer: null,
+@push('scripts')
+<script>
+let hasMore = {{ $pagination['has_more'] ? 'true' : 'false' }};
+let startingAfter = '{{ $pagination['starting_after'] ?? '' }}';
+let currentCount = {{ $pagination['current_count'] ?? 0 }};
 
-                async loadCustomers() {
-                    this.loading = true;
-                    this.error = null;
-                    
-                    try {
-                        const response = await fetch('/stripe/customers');
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            this.customers = result.data;
-                            this.hasMore = result.has_more;
-                            if (this.customers.length > 0) {
-                                this.lastCustomerId = this.customers[this.customers.length - 1].id;
-                            }
-                        } else {
-                            this.error = result.error;
-                        }
-                    } catch (error) {
-                        this.error = 'Error al cargar los customers: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
+document.addEventListener('DOMContentLoaded', function() {
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const tableBody = document.getElementById('customers-table-body');
+    const customerCount = document.getElementById('customer-count');
 
-                async loadAllCustomers() {
-                    this.loading = true;
-                    this.error = null;
-                    
-                    try {
-                        const response = await fetch('/stripe/customers/all');
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            this.customers = result.data;
-                            this.hasMore = false;
-                        } else {
-                            this.error = result.error;
-                        }
-                    } catch (error) {
-                        this.error = 'Error al cargar todos los customers: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', function() {
+            loadMoreCustomers();
+        });
+    }
 
-                async loadMoreCustomers() {
-                    if (!this.lastCustomerId) return;
-                    
-                    this.loading = true;
-                    this.error = null;
-                    
-                    try {
-                        const response = await fetch(`/stripe/customers?starting_after=${this.lastCustomerId}`);
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            this.customers = [...this.customers, ...result.data];
-                            this.hasMore = result.has_more;
-                            if (result.data.length > 0) {
-                                this.lastCustomerId = result.data[result.data.length - 1].id;
-                            }
-                        } else {
-                            this.error = result.error;
-                        }
-                    } catch (error) {
-                        this.error = 'Error al cargar más customers: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
+    function loadMoreCustomers() {
+        if (!hasMore) return;
 
-                async searchCustomers() {
-                    if (!this.searchEmail) return;
-                    
-                    this.loading = true;
-                    this.error = null;
-                    
-                    try {
-                        const response = await fetch(`/stripe/customers/search?email=${encodeURIComponent(this.searchEmail)}`);
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            this.customers = result.data;
-                            this.hasMore = false;
-                        } else {
-                            this.error = result.error;
-                        }
-                    } catch (error) {
-                        this.error = 'Error al buscar customers: ' + error.message;
-                    } finally {
-                        this.loading = false;
-                    }
-                },
+        // Mostrar loading
+        loadingIndicator.style.display = 'block';
+        loadMoreBtn.style.display = 'none';
 
-                async viewCustomer(customerId) {
-                    try {
-                        const response = await fetch(`/stripe/customers/${customerId}`);
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            this.selectedCustomer = result.data;
-                            this.showModal = true;
-                        } else {
-                            this.error = result.error;
-                        }
-                    } catch (error) {
-                        this.error = 'Error al cargar el customer: ' + error.message;
-                    }
-                },
-
-                formatDate(timestamp) {
-                    return new Date(timestamp * 1000).toLocaleDateString('es-ES', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+        fetch(`{{ route('admin.stripe.customers.load-more') }}?starting_after=${startingAfter}&limit=50`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data.length > 0) {
+                    // Agregar nuevas filas a la tabla
+                    data.data.forEach(customer => {
+                        const row = createCustomerRow(customer);
+                        tableBody.appendChild(row);
                     });
+
+                    // Actualizar contador
+                    currentCount += data.data.length;
+                    customerCount.textContent = currentCount;
+
+                    // Actualizar paginación
+                    hasMore = data.pagination.has_more;
+                    startingAfter = data.pagination.starting_after;
+
+                    if (hasMore) {
+                        loadMoreBtn.setAttribute('data-starting-after', startingAfter);
+                        loadMoreBtn.style.display = 'block';
+                    } else {
+                        loadMoreBtn.style.display = 'none';
+                        // Actualizar mensaje de información
+                        const resultsInfo = document.getElementById('results-info');
+                        resultsInfo.innerHTML = '<i class="fas fa-check-circle me-2"></i>Se encontraron <strong>' + currentCount + '</strong> cliente(s) - Todos los clientes cargados';
+                    }
+                } else {
+                    console.error('Error cargando más clientes:', data.error);
+                    alert('Error al cargar más clientes: ' + (data.error || 'Error desconocido'));
                 }
-            }
-        }
-    </script>
-</body>
-</html>
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cargar más clientes');
+            })
+            .finally(() => {
+                loadingIndicator.style.display = 'none';
+            });
+    }
+
+    function createCustomerRow(customer) {
+        const row = document.createElement('tr');
+        
+        const balance = customer.balance && customer.balance != 0 
+            ? `<span class="badge bg-${customer.balance > 0 ? 'success' : 'danger'}">$${(customer.balance / 100).toFixed(2)}</span>`
+            : '<span class="text-muted">$0.00</span>';
+
+        const created = customer.created 
+            ? new Date(customer.created * 1000).toLocaleDateString('es-ES') + ' ' + new Date(customer.created * 1000).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})
+            : '<span class="text-muted">N/A</span>';
+
+        row.innerHTML = `
+            <td><code class="text-muted">${customer.id}</code></td>
+            <td>${customer.email || 'Sin email'}</td>
+            <td>${customer.name || 'Sin nombre'}</td>
+            <td>${balance}</td>
+            <td>${created}</td>
+            <td>
+                <a href="/admin/stripe/customers/${customer.id}" class="btn btn-sm btn-info">
+                    <i class="fas fa-eye me-1"></i>Ver
+                </a>
+            </td>
+        `;
+        
+        return row;
+    }
+});
+
+// Auto-refresh cada 5 minutos si hay errores
+@if(!$customers['success'])
+    setTimeout(function() {
+        console.log('Auto-refresh debido a error de conexión');
+        window.location.reload();
+    }, 300000); // 5 minutos
+@endif
+</script>
+@endpush
+

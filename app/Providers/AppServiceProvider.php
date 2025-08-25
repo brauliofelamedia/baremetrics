@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\View;
 use App\Services\StripeService;
 use App\Services\BaremetricsService;
+use App\Services\SystemService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(BaremetricsService::class, function ($app) {
             return new BaremetricsService();
         });
+
+        $this->app->singleton(SystemService::class, function ($app) {
+            return new SystemService();
+        });
     }
 
     /**
@@ -27,6 +33,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Share system configuration with all views
+        View::composer('*', function ($view) {
+            if (!$view->offsetExists('systemConfig')) {
+                $systemService = app(SystemService::class);
+                $view->with('systemConfig', $systemService->getConfiguration());
+            }
+        });
     }
 }

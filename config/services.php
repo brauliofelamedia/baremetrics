@@ -46,6 +46,7 @@ return [
         'live_key' => env('BAREMETRICS_LIVE_KEY'),
         'sandbox_url' => 'https://api-sandbox.baremetrics.com/v1',
         'production_url' => 'https://api.baremetrics.com/v1',
+        'barecancel_js_url' => env('BAREMETRICS_BARECANCEL_JS_URL', 'https://baremetrics-barecancel.baremetrics.com/js/application.js'),
     ],
 
 ];

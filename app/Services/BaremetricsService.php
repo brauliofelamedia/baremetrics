@@ -339,4 +339,14 @@ class BaremetricsService
     {
         return $this->getEnvironment() === 'production';
     }
+
+    /**
+     * Get the Barecancel JavaScript URL
+     *
+     * @return string
+     */
+    public function getBarecancelJsUrl(): string
+    {
+        return config('services.baremetrics.barecancel_js_url');
+    }
 }

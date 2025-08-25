@@ -3,15 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Services\StripeService;
+use App\Services\BaremetricsService;
 use Illuminate\Http\Request;
 
 class CancellationController extends Controller
 {
     protected $stripeService;
+    protected $baremetricsService;
 
-    public function __construct(StripeService $stripeService)
+    public function __construct(StripeService $stripeService, BaremetricsService $baremetricsService)
     {
         $this->stripeService = $stripeService;
+        $this->baremetricsService = $baremetricsService;
     }
 
     /**
@@ -21,7 +24,8 @@ class CancellationController extends Controller
     {
         return view('cancellation.index', [
             'customers' => [],
-            'showSearchForm' => true
+            'showSearchForm' => true,
+            'barecancelJsUrl' => route('admin.cancellations.barecancel-js')
         ]);
     }
 
@@ -31,48 +35,46 @@ class CancellationController extends Controller
     public function searchByEmail(Request $request)
     {
         $request->validate([
-            'email' => 'required|email'
+            'email' => 'required|email|max:255'
+        ], [
+            'email.required' => 'El campo email es obligatorio.',
+            'email.email' => 'Debe introducir un email válido.',
+            'email.max' => 'El email no puede tener más de 255 caracteres.'
         ]);
 
         try {
-            $email = $request->get('email');
+            $email = trim(strtolower($request->get('email')));
             
             // Buscar el customer por email
             $result = $this->stripeService->searchCustomersByEmail($email);
             
             if (!$result['success']) {
-                return view('cancellation.index', [
-                    'customers' => [],
-                    'showSearchForm' => true,
-                    'error' => 'Error al buscar el cliente: ' . $result['error'],
-                    'searchedEmail' => $email
-                ]);
+                return back()->withInput()->with('error', 'Error al buscar el cliente: ' . $result['error']);
             }
             
             $customers = $result['data'] ?? [];
             
             if (empty($customers)) {
-                return view('cancellation.index', [
-                    'customers' => [],
-                    'showSearchForm' => true,
-                    'error' => 'No se encontró ningún cliente con el correo: ' . $email,
-                    'searchedEmail' => $email
-                ]);
+                return back()->withInput()->with('error', 'No se encontró ningún cliente con el correo: ' . $email);
             }
             
             return view('cancellation.index', [
                 'customers' => $customers,
                 'showSearchForm' => false,
-                'searchedEmail' => $email
+                'searchedEmail' => $email,
+                'barecancelJsUrl' => route('admin.cancellations.barecancel-js')
+            ])->with('success', 'Se encontraron ' . count($customers) . ' cliente(s) con el email: ' . $email);
+            
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Laravel maneja automáticamente los errores de validación
+            throw $e;
+        } catch (\Exception $e) {
+            \Log::error('Error al buscar cliente por email: ' . $e->getMessage(), [
+                'email' => $request->get('email'),
+                'trace' => $e->getTraceAsString()
             ]);
             
-        } catch (\Exception $e) {
-            \Log::error('Error al buscar cliente por email: ' . $e->getMessage());
-            return view('cancellation.index', [
-                'customers' => [],
-                'showSearchForm' => true,
-                'error' => 'Error inesperado al buscar el cliente.'
-            ]);
+            return back()->withInput()->with('error', 'Error inesperado al buscar el cliente. Por favor, inténtelo de nuevo.');
         }
     }
 
@@ -110,50 +112,47 @@ class CancellationController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Procesar cancelación manual
      */
-    public function create()
+    public function manualCancellation($customer_id)
     {
-        //
+        $customer_id = $customer_id ?? null;
+       return view('cancellation.manual', compact('customer_id'));
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Proxy the Baremetrics Barecancel JavaScript file to avoid CORS issues
      */
-    public function store(Request $request)
+    public function proxyBarecancelJs()
     {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(cr $cr)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(cr $cr)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, cr $cr)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(cr $cr)
-    {
-        //
+        try {
+            $jsUrl = $this->baremetricsService->getBarecancelJsUrl();
+            
+            // Fetch the JavaScript content from the original URL
+            $response = \Illuminate\Support\Facades\Http::timeout(30)->get($jsUrl);
+            
+            if ($response->successful()) {
+                return response($response->body(), 200)
+                    ->header('Content-Type', 'application/javascript; charset=utf-8')
+                    ->header('Cache-Control', 'public, max-age=3600') // Cache for 1 hour
+                    ->header('Access-Control-Allow-Origin', '*')
+                    ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+                    ->header('Access-Control-Allow-Headers', 'Content-Type');
+            }
+            
+            // If external request fails, return a fallback JavaScript
+            return response('console.warn("Baremetrics Barecancel script could not be loaded");', 200)
+                ->header('Content-Type', 'application/javascript; charset=utf-8');
+                
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to proxy Barecancel JS', [
+                'error' => $e->getMessage(),
+                'url' => $jsUrl ?? 'unknown'
+            ]);
+            
+            // Return a fallback JavaScript that sets up minimal functionality
+            return response('console.warn("Baremetrics Barecancel script could not be loaded: ' . addslashes($e->getMessage()) . '");', 200)
+                ->header('Content-Type', 'application/javascript; charset=utf-8');
+        }
     }
 }

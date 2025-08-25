@@ -77,6 +77,18 @@ class StripeService
                     'email' => $customer->email,
                     'name' => $customer->name,
                     'created' => $customer->created,
+                    'description' => $customer->description,
+                    'phone' => $customer->phone,
+                    'address' => $customer->address,
+                    'shipping' => $customer->shipping,
+                    'currency' => $customer->currency,
+                    'balance' => $customer->balance,
+                    'delinquent' => $customer->delinquent,
+                    'default_source' => $customer->default_source,
+                    'invoice_prefix' => $customer->invoice_prefix,
+                    'metadata' => $customer->metadata,
+                    'tax_exempt' => $customer->tax_exempt,
+                    'preferred_locales' => $customer->preferred_locales,
                 ];
             }
 
@@ -109,17 +121,43 @@ class StripeService
      *
      * @return array
      */
+    /**
+     * Obtener todos los customer IDs de Stripe sin límite
+     *
+     * @return array
+     */
     public function getAllCustomerIds()
     {
         $allCustomers = [];
         $startingAfter = null;
         $hasMore = true;
+        $maxIterations = 100; // Prevenir bucles infinitos
+        $currentIteration = 0;
 
         try {
-            while ($hasMore) {
+            // Verificar conectividad primero
+            $testConnection = $this->testConnection();
+            if (!$testConnection['success']) {
+                return [
+                    'success' => false,
+                    'error' => 'Error de conectividad: ' . $testConnection['error'],
+                    'data' => []
+                ];
+            }
+
+            while ($hasMore && $currentIteration < $maxIterations) {
+                $currentIteration++;
+                
+                // Establecer un timeout para cada iteración
+                set_time_limit(30);
+                
                 $result = $this->getCustomerIds(100, $startingAfter);
                 
                 if (!$result['success']) {
+                    Log::error('Error en iteración ' . $currentIteration . ' de getAllCustomerIds', [
+                        'error' => $result['error'],
+                        'starting_after' => $startingAfter
+                    ]);
                     return $result;
                 }
 
@@ -127,10 +165,32 @@ class StripeService
                 
                 if ($result['has_more'] && !empty($result['data'])) {
                     $startingAfter = end($result['data'])['id'];
+                    Log::info('Cargando más customers de Stripe', [
+                        'iteration' => $currentIteration,
+                        'loaded_so_far' => count($allCustomers),
+                        'starting_after' => $startingAfter
+                    ]);
                 } else {
                     $hasMore = false;
                 }
+
+                // Pausa pequeña para evitar rate limiting
+                if ($hasMore) {
+                    usleep(100000); // 0.1 segundos
+                }
             }
+
+            if ($currentIteration >= $maxIterations) {
+                Log::warning('getAllCustomerIds alcanzó el límite máximo de iteraciones', [
+                    'max_iterations' => $maxIterations,
+                    'customers_loaded' => count($allCustomers)
+                ]);
+            }
+
+            Log::info('getAllCustomerIds completado exitosamente', [
+                'total_customers' => count($allCustomers),
+                'iterations' => $currentIteration
+            ]);
 
             return [
                 'success' => true,
@@ -139,10 +199,16 @@ class StripeService
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error al obtener todos los customers de Stripe: ' . $e->getMessage());
+            Log::error('Error inesperado al obtener todos los customers de Stripe', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'iteration' => $currentIteration ?? 0,
+                'customers_loaded' => count($allCustomers)
+            ]);
+            
             return [
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => 'Error inesperado: ' . $e->getMessage(),
                 'data' => []
             ];
         }
@@ -163,11 +229,25 @@ class StripeService
                 'success' => true,
                 'data' => [
                     'id' => $customer->id,
+                    'object' => $customer->object,
                     'email' => $customer->email,
                     'name' => $customer->name,
                     'created' => $customer->created,
                     'description' => $customer->description,
+                    'phone' => $customer->phone,
+                    'address' => $customer->address,
+                    'shipping' => $customer->shipping,
+                    'currency' => $customer->currency,
+                    'balance' => $customer->balance,
+                    'delinquent' => $customer->delinquent,
+                    'default_source' => $customer->default_source,
+                    'invoice_prefix' => $customer->invoice_prefix,
+                    'invoice_settings' => $customer->invoice_settings,
+                    'livemode' => $customer->livemode,
                     'metadata' => $customer->metadata,
+                    'tax_exempt' => $customer->tax_exempt,
+                    'test_clock' => $customer->test_clock,
+                    'preferred_locales' => $customer->preferred_locales,
                 ]
             ];
 
@@ -187,12 +267,31 @@ class StripeService
      * @param string $email
      * @return array
      */
+    /**
+     * Buscar customers por email en Stripe
+     *
+     * @param string $email Email del customer a buscar
+     * @return array
+     */
     public function searchCustomersByEmail($email)
     {
         try {
+            // Limpiar y normalizar el email
+            $email = trim(strtolower($email));
+            
+            // Validar el formato del email
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return [
+                    'success' => false,
+                    'error' => 'El formato del email no es válido',
+                    'data' => []
+                ];
+            }
+
+            // Buscar customers por email en Stripe
             $customers = Customer::all([
                 'email' => $email,
-                'limit' => 100,
+                'limit' => 100, // Máximo permitido por Stripe
             ]);
 
             $customerData = [];
@@ -202,8 +301,25 @@ class StripeService
                     'email' => $customer->email,
                     'name' => $customer->name,
                     'created' => $customer->created,
+                    'description' => $customer->description,
+                    'phone' => $customer->phone,
+                    'address' => $customer->address,
+                    'shipping' => $customer->shipping,
+                    'currency' => $customer->currency,
+                    'balance' => $customer->balance,
+                    'delinquent' => $customer->delinquent,
+                    'default_source' => $customer->default_source,
+                    'invoice_prefix' => $customer->invoice_prefix,
+                    'metadata' => $customer->metadata,
+                    'tax_exempt' => $customer->tax_exempt,
+                    'preferred_locales' => $customer->preferred_locales,
                 ];
             }
+
+            Log::info('Búsqueda de customer por email completada', [
+                'email' => $email,
+                'found_customers' => count($customerData)
+            ]);
 
             return [
                 'success' => true,
@@ -212,10 +328,27 @@ class StripeService
             ];
 
         } catch (ApiErrorException $e) {
-            Log::error('Error al buscar customers por email en Stripe: ' . $e->getMessage());
+            Log::error('Error al buscar customers por email en Stripe API', [
+                'email' => $email ?? 'N/A',
+                'error' => $e->getMessage(),
+                'code' => $e->getCode()
+            ]);
+            
             return [
                 'success' => false,
+                'error' => 'Error de la API de Stripe: ' . $e->getMessage(),
+                'data' => []
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error inesperado al buscar customers por email', [
+                'email' => $email ?? 'N/A',
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => 'Error inesperado durante la búsqueda',
                 'data' => []
             ];
         }
