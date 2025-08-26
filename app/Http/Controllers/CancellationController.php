@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Services\StripeService;
 use App\Services\BaremetricsService;
 use Illuminate\Http\Request;
+use Log;
+use Cache;
 
 class CancellationController extends Controller
 {
@@ -20,12 +22,26 @@ class CancellationController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $customers = $this->stripeService->searchCustomersByEmail('jorge@felamedia.com');
+        //dd($customers);
+        // Obtener el email desde la query string: ?email=...
+        $email = trim((string) $request->query('email', ''));
+
+        if ($email) {
+            $customers = $this->getCustomers($email);
+            $customers = $customers['customers'];
+        } else {
+            $customers = [];
+        }
+
+        //dd($customers);
+
         return view('cancellation.index', [
-            'customers' => [],
+            'customers' => $customers,
             'showSearchForm' => true,
-            'barecancelJsUrl' => route('admin.cancellations.barecancel-js')
+            'searchedEmail' => $email,
         ]);
     }
 
@@ -46,24 +62,36 @@ class CancellationController extends Controller
             $email = trim(strtolower($request->get('email')));
             
             // Buscar el customer por email
-            $result = $this->stripeService->searchCustomersByEmail($email);
-            
-            if (!$result['success']) {
-                return back()->withInput()->with('error', 'Error al buscar el cliente: ' . $result['error']);
+            $customers = $this->getCustomers();
+
+            $result = [
+                'success' => false,
+                'data' => [],
+                'error' => ''
+            ];
+
+            $matchedCustomers = array_filter($customers, function ($customer) use ($email) {
+                return isset($customer['email']) && strtolower(trim($customer['email'])) === $email;
+            });
+
+            log::info('Resultados de búsqueda para email: ' . $email, [
+                'total' => count($customers),
+                'found' => count($matchedCustomers)
+            ]);
+
+            if ($matchedCustomers) {
+                return view('cancellation.index', [
+                    'customers' => array_values($matchedCustomers),
+                    'showSearchForm' => false,
+                    'searchedEmail' => $email,
+                ])->with('success', 'Se encontraron ' . count($matchedCustomers) . ' cliente(s) con el email: ' . $email);
+            } else {
+                return view('cancellation.index', [
+                    'customers' => [],
+                    'showSearchForm' => false,
+                    'searchedEmail' => $email,
+                ])->with('error', 'No se encontró ningún cliente con ese email.');
             }
-            
-            $customers = $result['data'] ?? [];
-            
-            if (empty($customers)) {
-                return back()->withInput()->with('error', 'No se encontró ningún cliente con el correo: ' . $email);
-            }
-            
-            return view('cancellation.index', [
-                'customers' => $customers,
-                'showSearchForm' => false,
-                'searchedEmail' => $email,
-                'barecancelJsUrl' => route('admin.cancellations.barecancel-js')
-            ])->with('success', 'Se encontraron ' . count($customers) . ' cliente(s) con el email: ' . $email);
             
         } catch (\Illuminate\Validation\ValidationException $e) {
             // Laravel maneja automáticamente los errores de validación
@@ -79,80 +107,48 @@ class CancellationController extends Controller
     }
 
     /**
-     * Obtener más clientes con paginación (para AJAX)
-     */
-    public function loadMoreCustomers(Request $request)
-    {
-        try {
-            $startingAfter = $request->get('starting_after');
-            $limit = $request->get('limit', 50);
-            
-            $customersResult = $this->stripeService->getCustomerIds($limit, $startingAfter);
-            
-            if (!$customersResult['success']) {
-                return response()->json([
-                    'success' => false,
-                    'error' => $customersResult['error']
-                ], 500);
-            }
-            
-            return response()->json([
-                'success' => true,
-                'customers' => $customersResult['data'],
-                'has_more' => $customersResult['has_more']
-            ]);
-            
-        } catch (\Exception $e) {
-            \Log::error('Error al cargar más clientes: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'error' => 'Error al cargar más clientes'
-            ], 500);
-        }
-    }
-
-    /**
      * Procesar cancelación manual
      */
-    public function manualCancellation($customer_id)
+    public function manualCancellation($customer_id, $subscription_id)
     {
-        $customer_id = $customer_id ?? null;
-       return view('cancellation.manual', compact('customer_id'));
+       $customer_id = request()->get('customer_id', $customer_id);
+       $subscription_id = request()->get('subscription_id', $subscription_id);
+
+       return view('cancellation.manual', compact('subscription_id', 'customer_id'));
     }
 
-    /**
-     * Proxy the Baremetrics Barecancel JavaScript file to avoid CORS issues
-     */
-    public function proxyBarecancelJs()
+    private function getCustomers(string $search)
     {
-        try {
-            $jsUrl = $this->baremetricsService->getBarecancelJsUrl();
-            
-            // Fetch the JavaScript content from the original URL
-            $response = \Illuminate\Support\Facades\Http::timeout(30)->get($jsUrl);
-            
-            if ($response->successful()) {
-                return response($response->body(), 200)
-                    ->header('Content-Type', 'application/javascript; charset=utf-8')
-                    ->header('Cache-Control', 'public, max-age=3600') // Cache for 1 hour
-                    ->header('Access-Control-Allow-Origin', '*')
-                    ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-                    ->header('Access-Control-Allow-Headers', 'Content-Type');
-            }
-            
-            // If external request fails, return a fallback JavaScript
-            return response('console.warn("Baremetrics Barecancel script could not be loaded");', 200)
-                ->header('Content-Type', 'application/javascript; charset=utf-8');
-                
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to proxy Barecancel JS', [
-                'error' => $e->getMessage(),
-                'url' => $jsUrl ?? 'unknown'
-            ]);
-            
-            // Return a fallback JavaScript that sets up minimal functionality
-            return response('console.warn("Baremetrics Barecancel script could not be loaded: ' . addslashes($e->getMessage()) . '");', 200)
-                ->header('Content-Type', 'application/javascript; charset=utf-8');
+        $sources = $this->baremetricsService->getSources();
+
+        // Normalizar la estructura: la respuesta puede venir como ['sources' => [...]]
+        $sourcesNew = [];
+        if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
+            $sourcesNew = $sources['sources'];
+        } elseif (is_array($sources)) {
+            // Si getCustomers ya devolvió directamente un array de sources
+            $sourcesNew = $sources;
         }
+
+        // Filtrar sólo providers 'stripe'
+        $stripeSources = array_values(array_filter($sourcesNew, function ($source) {
+            return isset($source['provider']) && $source['provider'] === 'stripe';
+        }));
+
+        // Extraer solo los IDs (filtrando vacíos)
+        $sourceIds = array_values(array_filter(array_column($stripeSources, 'id'), function ($id) {
+            return !empty($id);
+        }));
+
+        //Iteramos la lista de sources para obtener los clientes
+        $customersExtract = [];
+        foreach ($sourceIds as $sourceId) {
+            $customers = $this->baremetricsService->getCustomers($sourceId, $search);
+
+            if ($customers) {
+                $customersExtract = array_merge($customersExtract, $customers);
+            }
+        }
+        return $customersExtract;
     }
 }

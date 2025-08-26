@@ -6,6 +6,7 @@ use Stripe\Stripe;
 use Stripe\Customer;
 use Stripe\Exception\ApiErrorException;
 use Illuminate\Support\Facades\Log;
+use \Stripe\Subscription;
 
 class StripeService
 {
@@ -291,11 +292,22 @@ class StripeService
             // Buscar customers por email en Stripe
             $customers = Customer::all([
                 'email' => $email,
-                'limit' => 100, // Máximo permitido por Stripe
+                'limit' => 100,
             ]);
 
             $customerData = [];
             foreach ($customers->data as $customer) {
+                
+                $subscriptions = \Stripe\Subscription::all([
+                    'customer' => $customer->id,
+                    'status' => 'active',
+                    'limit' => 50
+                ]);
+
+                Log::info('Subscripciones totales del usuario ' . $customer->id, [
+                    'total_subscriptions' => count($subscriptions->data),
+                ]);
+
                 $customerData[] = [
                     'id' => $customer->id,
                     'email' => $customer->email,
@@ -313,13 +325,9 @@ class StripeService
                     'metadata' => $customer->metadata,
                     'tax_exempt' => $customer->tax_exempt,
                     'preferred_locales' => $customer->preferred_locales,
+                    'subscriptions' => $subscriptions->data,
                 ];
             }
-
-            Log::info('Búsqueda de customer por email completada', [
-                'email' => $email,
-                'found_customers' => count($customerData)
-            ]);
 
             return [
                 'success' => true,
@@ -362,5 +370,156 @@ class StripeService
     public function getPublishableKey()
     {
         return config('services.stripe.publishable_key');
+    }
+
+        /**
+     * Cancelar la suscripción activa de un usuario en Stripe
+     *
+     * @param string $customerId
+     * @param string $subscriptionId
+     * @return array
+     */
+    public function cancelActiveSubscription($customerId, $subscriptionId)
+    {
+        try {
+            // Validar que customerId no esté vacío
+            if (empty($customerId)) {
+                return [
+                    'success' => false,
+                    'error' => 'El ID del cliente es requerido.'
+                ];
+            }
+
+            $subscription = null;
+
+            // Si se proporciona subscriptionId, usarlo directamente
+            if (!empty($subscriptionId)) {
+                try {
+
+                    $subscription = Subscription::retrieve($subscriptionId);
+
+                } catch (\Stripe\Exception\InvalidRequestException $e) {
+                    // Suscripción no encontrada
+
+                    Log::error('No se encontró la suscripción en Stripe', [
+                        'customer_id' => $customerId,
+                        'subscription_id' => $subscriptionId,
+                        'stripe_error' => $e->getMessage()
+                    ]);
+
+                    return [
+                        'success' => false,
+                        'error' => 'No se encontró la suscripción en Stripe: ' . $e->getMessage()
+                    ];
+                }
+
+                // Verificar que la suscripción pertenezca al cliente
+                if ($subscription->customer !== $customerId) {
+                    return [
+                        'success' => false,
+                        'error' => 'La suscripción no pertenece al cliente especificado.'
+                    ];
+                }
+
+                Log::info('La suscripción si pertenece al cliente especificado', [
+                    'customer_id' => $customerId,
+                    'subscription_id' => $subscriptionId
+                ]);
+                
+                // Verificar que la suscripción esté activa
+                if (!in_array($subscription->status, ['active', 'trialing'])) {
+                    return [
+                        'success' => false,
+                        'error' => 'La suscripción no está activa. Estado actual: ' . $subscription->status
+                    ];
+                }
+            }
+
+            Log::info('Subcription selected', [
+                'customer_id' => $customerId,
+                'subscription_id' => $subscription->id
+            ]);
+
+            // Cancelar al final del período
+            $canceledSubscription = Subscription::update(
+                $subscription->id,
+                ['cancel_at_period_end' => true]
+            );
+
+            // Preparar respuesta informativa
+            $response = [
+                'success' => true,
+                'data' => [
+                    'id' => $canceledSubscription->id,
+                    'status' => $canceledSubscription->status,
+                    'cancel_at_period_end' => $canceledSubscription->cancel_at_period_end,
+                    'current_period_end' => $canceledSubscription->current_period_end,
+                    'cancellation_details' => [
+                        'method' => 'end_of_period',
+                        'cancellation_date' => date('Y-m-d H:i:s'),
+                        'period_end_date' => date('Y-m-d H:i:s', $canceledSubscription->current_period_end)
+                    ]
+                ]
+            ];
+
+            // Log de la operación exitosa
+            Log::info('Suscripción cancelada exitosamente', [
+                'customer_id' => $customerId,
+                'subscription_id' => $subscription->id,
+                'method' => 'end_of_period',
+                'period_end' => $canceledSubscription->current_period_end,
+                'response' => $response
+            ]);
+
+            return $response;
+
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+
+            $errorMessage = 'Error de API al cancelar suscripción en Stripe: ' . $e->getMessage();
+            
+            Log::error($errorMessage, [
+                'customer_id' => $customerId,
+                'subscription_id' => $subscriptionId ?? 'not_provided'
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => 'Error al procesar la cancelación: ' . $e->getMessage()
+            ];
+        } catch (\Exception $e) {
+            $errorMessage = 'Error inesperado al cancelar suscripción: ' . $e->getMessage();
+            Log::error($errorMessage, [
+                'customer_id' => $customerId,
+                'subscription_id' => $subscriptionId ?? 'not_provided'
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => 'Error inesperado al procesar la cancelación: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    public function getSubscriptionCustomer($customer_id, $priceId)
+    {
+         $subscriptions = \Stripe\Subscription::all([
+            'customer' => $customer_id,
+            'limit' => 100,
+            'status' => 'active'
+        ]);
+
+        foreach ($subscriptions->data as $subscription) {
+            foreach ($subscription->items->data as $item) {
+                if ($item->price->id === $priceId) {
+                    return $subscription;
+                }
+            }
+        }
+    }
+
+    public function checkSubscriptionCancellationStatus($subscriptionId)
+    {
+        $subscription = \Stripe\Subscription::retrieve($subscriptionId);
+        return $subscription->cancel_at;
     }
 }

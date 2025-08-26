@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
+use Log;
 
 class StripeController extends Controller
 {
@@ -15,12 +16,6 @@ class StripeController extends Controller
         $this->stripeService = $stripeService;
     }
 
-    /**
-     * Obtener todos los customer IDs
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function getCustomers(Request $request): JsonResponse
     {
         $limit = $request->get('limit', 100);
@@ -31,11 +26,6 @@ class StripeController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * Obtener todos los customers sin límite
-     *
-     * @return JsonResponse
-     */
     public function getAllCustomers(): JsonResponse
     {
         $result = $this->stripeService->getAllCustomerIds();
@@ -43,12 +33,6 @@ class StripeController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * Obtener un customer específico
-     *
-     * @param string $customerId
-     * @return JsonResponse
-     */
     public function getCustomer($customerId): JsonResponse
     {
         $result = $this->stripeService->getCustomer($customerId);
@@ -56,12 +40,6 @@ class StripeController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * Buscar customers por email
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function searchCustomers(Request $request): JsonResponse
     {
         $request->validate([
@@ -73,11 +51,6 @@ class StripeController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * Obtener la clave publishable
-     *
-     * @return JsonResponse
-     */
     public function getPublishableKey(): JsonResponse
     {
         return response()->json([
@@ -85,35 +58,6 @@ class StripeController extends Controller
         ]);
     }
 
-    /**
-     * Cargar más customers vía AJAX
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function loadMoreCustomers(Request $request): JsonResponse
-    {
-        $startingAfter = $request->get('starting_after');
-        $limit = $request->get('limit', 50);
-
-        $result = $this->stripeService->getCustomerIds($limit, $startingAfter);
-
-        if ($result['success']) {
-            $result['pagination'] = [
-                'has_more' => $result['has_more'] ?? false,
-                'starting_after' => !empty($result['data']) ? end($result['data'])['id'] : null,
-                'current_count' => count($result['data'])
-            ];
-        }
-
-        return response()->json($result);
-    }
-
-    /**
-     * Vista principal para mostrar customers
-     *
-     * @return \Illuminate\View\View
-     */
     public function index()
     {
         try {
@@ -157,5 +101,22 @@ class StripeController extends Controller
                 'pagination' => ['has_more' => false, 'starting_after' => null]
             ]);
         }
+    }
+
+    public function cancelSubscription(Request $request)
+    {
+        $customer_id = $request->input('customer_id');
+        $priceId = $request->input('subscription_id');
+
+        Log::info('Cancelando suscripción para el cliente: ' . $customer_id);
+        Log::info('ID de precio: ' . $priceId);
+
+        $subscription = $this->stripeService->getSubscriptionCustomer($customer_id, $priceId);
+
+        Log::info('Suscripción obtenida: ' . $subscription);
+
+        $result = $this->stripeService->cancelActiveSubscription($customer_id, $subscription['id']);
+
+        return response()->json(['message' => 'Se ha cancelado la subscripción correctamente, serás redirigido en 5 segundos...'], 200);
     }
 }

@@ -16,10 +16,6 @@ Route::get('/', function () {
 // Rutas de autenticación
 Auth::routes(['register' => false]);
 
-// Public proxy route for Baremetrics Barecancel JavaScript (must be outside auth middleware)
-Route::get('admin/js/barecancel.js', [App\Http\Controllers\CancellationController::class, 'proxyBarecancelJs'])
-    ->name('admin.cancellations.barecancel-js');
-
 // Rutas del admin panel (protegidas por middleware)
 Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->group(function () {
     // Dashboard principal
@@ -53,17 +49,16 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     });
     
     // Cancelaciones (ahora bajo admin)
-    Route::resource('cancellations', App\Http\Controllers\CancellationController::class)
-        ->except(['create', 'store', 'show', 'edit', 'update', 'destroy']);
-    Route::get('cancellations/load-more', [App\Http\Controllers\CancellationController::class, 'loadMoreCustomers'])
-        ->name('cancellations.load-more');
-    Route::post('cancellations/search', [App\Http\Controllers\CancellationController::class, 'searchByEmail'])
-        ->name('cancellations.search');
-    Route::get('cancellations/{customer_id}', [App\Http\Controllers\CancellationController::class, 'manualCancellation'])->name('cancellations.manual');
+    Route::resource('cancellations', App\Http\Controllers\CancellationController::class)->except(['create', 'store', 'show', 'edit', 'update', 'destroy']);
+    Route::get('cancellations/load-more', [App\Http\Controllers\CancellationController::class, 'loadMoreCustomers'])->name('cancellations.load-more');
+    Route::get('cancellations/search/{search?}', [App\Http\Controllers\CancellationController::class, 'searchByEmail'])->name('cancellations.search');
+    Route::get('cancellations/{customer_id}/{subscription_id}', [App\Http\Controllers\CancellationController::class, 'manualCancellation'])->name('cancellations.manual');
+    Route::post('cancellations/stripe/cancel', [App\Http\Controllers\CancellationController::class, 'cancelSubscription'])->name('cancellations.cancel');
 
     // Rutas para Stripe (ahora bajo admin)
     Route::prefix('stripe')->name('stripe.')->group(function () {
         Route::get('/', [StripeController::class, 'index'])->name('index');
+        Route::post('/customers/cancel', [StripeController::class, 'cancelSubscription'])->name('customers.cancel');
         Route::get('/customers', [StripeController::class, 'index'])->name('customers'); // Vista principal
         Route::get('/customers/data', [StripeController::class, 'getCustomers'])->name('customers.data'); // API data
         Route::get('/customers/all', [StripeController::class, 'getAllCustomers'])->name('customers.all');

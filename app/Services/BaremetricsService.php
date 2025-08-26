@@ -188,47 +188,40 @@ class BaremetricsService
      * @param int|null $perPage Number of items per page (optional)
      * @return array|null
      */
-    public function getCustomers(string $sourceId, ?int $page = null, ?int $perPage = null): ?array
+    public function getCustomers(string $sourceId, string $search): ?array
     {
         try {
-            $queryParams = [];
-            
-            if ($page !== null) {
-                $queryParams['page'] = $page;
+            $allCustomers = [];
+
+            // Si se pasa un sourceId, solo busca para ese source
+            if ($sourceId) {
+                $url = $this->baseUrl . '/' . $sourceId . '/customers?search=' . $search . '&sort=created&order=asc&per_page=200';
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])->get($url);
+
+                if ($response->successful()) {
+                    return $response->json();
+                }
+
+                Log::error('Baremetrics API Error - Customers', [
+                    'status' => $response->status(),
+                    'response' => $response->body(),
+                    'source_id' => $sourceId,
+                ]);
+
+                return null;
             }
             
-            if ($perPage !== null) {
-                $queryParams['per_page'] = $perPage;
-            }
-            
-            $url = $this->baseUrl . '/' . $sourceId . '/customers';
-            
-            if (!empty($queryParams)) {
-                $url .= '?' . http_build_query($queryParams);
-            }
+            return ['customers' => $allCustomers];
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-            ])->get($url);
-
-            if ($response->successful()) {
-                return $response->json();
-            }
-
-            Log::error('Baremetrics API Error - Customers', [
-                'status' => $response->status(),
-                'response' => $response->body(),
-                'source_id' => $sourceId,
-            ]);
-
-            return null;
         } catch (\Exception $e) {
             Log::error('Baremetrics Service Exception - Customers', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'source_id' => $sourceId,
             ]);
 
             return null;
