@@ -166,11 +166,6 @@ class StripeService
                 
                 if ($result['has_more'] && !empty($result['data'])) {
                     $startingAfter = end($result['data'])['id'];
-                    Log::info('Cargando más customers de Stripe', [
-                        'iteration' => $currentIteration,
-                        'loaded_so_far' => count($allCustomers),
-                        'starting_after' => $startingAfter
-                    ]);
                 } else {
                     $hasMore = false;
                 }
@@ -187,11 +182,6 @@ class StripeService
                     'customers_loaded' => count($allCustomers)
                 ]);
             }
-
-            Log::info('getAllCustomerIds completado exitosamente', [
-                'total_customers' => count($allCustomers),
-                'iterations' => $currentIteration
-            ]);
 
             return [
                 'success' => true,
@@ -302,10 +292,6 @@ class StripeService
                     'customer' => $customer->id,
                     'status' => 'active',
                     'limit' => 50
-                ]);
-
-                Log::info('Subscripciones totales del usuario ' . $customer->id, [
-                    'total_subscriptions' => count($subscriptions->data),
                 ]);
 
                 $customerData[] = [
@@ -420,11 +406,6 @@ class StripeService
                         'error' => 'La suscripción no pertenece al cliente especificado.'
                     ];
                 }
-
-                Log::info('La suscripción si pertenece al cliente especificado', [
-                    'customer_id' => $customerId,
-                    'subscription_id' => $subscriptionId
-                ]);
                 
                 // Verificar que la suscripción esté activa
                 if (!in_array($subscription->status, ['active', 'trialing'])) {
@@ -434,11 +415,6 @@ class StripeService
                     ];
                 }
             }
-
-            Log::info('Subcription selected', [
-                'customer_id' => $customerId,
-                'subscription_id' => $subscription->id
-            ]);
 
             // Cancelar al final del período
             $canceledSubscription = Subscription::update(
@@ -461,15 +437,6 @@ class StripeService
                     ]
                 ]
             ];
-
-            // Log de la operación exitosa
-            Log::info('Suscripción cancelada exitosamente', [
-                'customer_id' => $customerId,
-                'subscription_id' => $subscription->id,
-                'method' => 'end_of_period',
-                'period_end' => $canceledSubscription->current_period_end,
-                'response' => $response
-            ]);
 
             return $response;
 

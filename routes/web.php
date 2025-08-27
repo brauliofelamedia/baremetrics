@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StripeController;
 use App\Http\Controllers\BaremetricsController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\GoHighLevelController;
 
 // Ruta principal - redirigir al dashboard si está autenticado
 Route::get('/', function () {
@@ -55,6 +56,14 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     Route::get('cancellations/{customer_id}/{subscription_id}', [App\Http\Controllers\CancellationController::class, 'manualCancellation'])->name('cancellations.manual');
     Route::post('cancellations/stripe/cancel', [App\Http\Controllers\CancellationController::class, 'cancelSubscription'])->name('cancellations.cancel');
 
+    //GoHighLevel
+    Route::prefix('ghlevel')->name('ghlevel.')->group(function () {
+        Route::get('/initial', [GoHighLevelController::class, 'initial'])->name('initial');
+        Route::get('/authorization', [GoHighLevelController::class, 'authorization'])->name('authorize');
+        Route::get('/custom-fields', [GoHighLevelController::class, 'getCustomFields'])->name('custom_fields');
+        Route::get('/contacts/{email?}', [GoHighLevelController::class, 'getContacts'])->name('contacts');
+    });
+
     // Rutas para Stripe (ahora bajo admin)
     Route::prefix('stripe')->name('stripe.')->group(function () {
         Route::get('/', [StripeController::class, 'index'])->name('index');
@@ -82,7 +91,8 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/sources', [BaremetricsController::class, 'getSources'])->name('sources');
         Route::get('/users', [BaremetricsController::class, 'getUsers'])->name('users');
         Route::get('/config', [BaremetricsController::class, 'getConfig'])->name('config');
-        
+        Route::get('/update-fields', [BaremetricsController::class, 'updateCustomerFieldsFromGHL'])->name('update-fields');
+
         // Rutas que requieren sourceId
         Route::prefix('{sourceId}')->group(function () {
             Route::get('/plans', [BaremetricsController::class, 'getPlans'])->name('plans');

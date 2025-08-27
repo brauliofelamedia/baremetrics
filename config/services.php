@@ -49,4 +49,15 @@ return [
         'barecancel_js_url' => env('BAREMETRICS_BARECANCEL_JS_URL', 'https://baremetrics-barecancel.baremetrics.com/js/application.js'),
     ],
 
+    'gohighlevel' => [
+        'authorization_url' => env('GHL_AUTORIZATION_URL'),
+        'scopes' => env('GHL_SCOPES'),
+        'client_id' => env('GHL_CLIENT_ID'),
+        'code' => env('GHL_CODE'),
+        'client_secret' => env('GHL_CLIENT_SECRET'),
+        'token' => env('GHL_TOKEN'),
+        'location' => env('GHL_LOCATION'),
+        'company' => env('GHL_COMPANY')
+    ]
+
 ];

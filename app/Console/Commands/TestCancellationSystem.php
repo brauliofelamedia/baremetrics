@@ -78,12 +78,6 @@ class TestCancellationSystem extends Command
         
         // Test manual cancellation logging
         try {
-            \Log::info('Manual cancellation test', [
-                'customer_email' => $email,
-                'test_mode' => true,
-                'timestamp' => now(),
-                'initiated_by' => 'console_command'
-            ]);
             
             $this->info('✓ Manual cancellation logging works');
         } catch (\Exception $e) {

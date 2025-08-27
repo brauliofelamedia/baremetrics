@@ -74,11 +74,6 @@ class CancellationController extends Controller
                 return isset($customer['email']) && strtolower(trim($customer['email'])) === $email;
             });
 
-            log::info('Resultados de búsqueda para email: ' . $email, [
-                'total' => count($customers),
-                'found' => count($matchedCustomers)
-            ]);
-
             if ($matchedCustomers) {
                 return view('cancellation.index', [
                     'customers' => array_values($matchedCustomers),
