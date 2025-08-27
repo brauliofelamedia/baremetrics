@@ -192,7 +192,6 @@ class BaremetricsService
     {
         try {
             $allCustomers = [];
-
             // Si se pasa un sourceId, solo busca para ese source
             if ($sourceId) {
                 $url = $this->baseUrl . '/' . $sourceId . '/customers?search=' . $search . '&sort=created&page=' . $page . '&order=asc&per_page=100';
