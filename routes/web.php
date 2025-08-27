@@ -91,7 +91,12 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/sources', [BaremetricsController::class, 'getSources'])->name('sources');
         Route::get('/users', [BaremetricsController::class, 'getUsers'])->name('users');
         Route::get('/config', [BaremetricsController::class, 'getConfig'])->name('config');
-        Route::get('/update-fields', [BaremetricsController::class, 'updateCustomerFieldsFromGHL'])->name('update-fields');
+    // Página para ejecutar la actualización de campos desde GHL
+    Route::get('/update-fields', [BaremetricsController::class, 'showUpdateFields'])->name('update-fields');
+    // Inicia el proceso en background (dispara un comando Artisan)
+    Route::post('/update-fields/start', [BaremetricsController::class, 'updateCustomerFieldsFromGHL'])->name('update-fields.start');
+    // Estado / progreso
+    Route::get('/update-fields/status', [BaremetricsController::class, 'getUpdateStatus'])->name('update-fields.status');
 
         // Rutas que requieren sourceId
         Route::prefix('{sourceId}')->group(function () {
