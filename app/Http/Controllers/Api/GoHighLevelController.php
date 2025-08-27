@@ -58,6 +58,12 @@ class GoHighLevelController extends Controller
 
                 // Actualizar en Baremetrics
                 $result = $this->baremetricsService->updateCustomerAttributes($stripe_id, $ghlData);
+
+                return response()->json([
+                    'message' => 'Actualización exitosa',
+                    'result' => $result
+                ], 200);
+                
                 Log::info('Cliente actualizado con éxito desde GHL', ['result' => $result]);
 
             } else {
