@@ -148,17 +148,24 @@
                                                         </div>
                                                     @else
                                                         @inject('stripeService', 'App\Services\StripeService')
-                                                        @foreach($customer['current_plans'] as $plan)
-                                                            @php
-                                                                $subscription = $stripeService->getSubscriptionCustomer($customer['oid'],$plan['oid']);
-                                                                $isCanceled = $stripeService->checkSubscriptionCancellationStatus($subscription['id']);
-                                                            @endphp
-                                                            @if($customer['is_canceled'] == false && !$isCanceled)
-                                                                <a href="{{route('admin.cancellations.manual', ['customer_id' => $customer['oid'], 'subscription_id' => $plan['oid']])}}" class="btn btn-danger btn-xs" title="{{ $plan['name'] }}">Cancelar</a>
-                                                            @else
-                                                                <p>No hay subscripciones activas</p>
-                                                            @endif
-                                                        @endforeach
+                                                        @if(!is_null($customer['current_plans']))
+                                                            @foreach($customer['current_plans'] as $plan)
+                                                                @php
+                                                                    $subscription = $stripeService->getSubscriptionCustomer($customer['oid'],$plan['oid']);
+                                                                    $isCanceled = false;
+                                                                    if ($subscription && isset($subscription['id'])) {
+                                                                        $isCanceled = $stripeService->checkSubscriptionCancellationStatus($subscription['id']);
+                                                                    }
+                                                                @endphp
+                                                                @if($customer['is_canceled'] == false && !$isCanceled)
+                                                                    <a href="{{route('admin.cancellations.manual', ['customer_id' => $customer['oid'], 'subscription_id' => $plan['oid']])}}" class="btn btn-danger btn-xs" title="{{ $plan['name'] }}">Cancelar</a>
+                                                                @else
+                                                                    <p>No hay subscripciones activas</p>
+                                                                @endif
+                                                            @endforeach
+                                                        @else
+                                                            <p>No hay subscripciones activas</p>
+                                                        @endif
                                                 @endif
                                             @else
                                                 <p>No hay subscripciones activas</p>
