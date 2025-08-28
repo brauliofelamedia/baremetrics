@@ -148,9 +148,7 @@
                                                         </div>
                                                     @else
                                                         @inject('stripeService', 'App\Services\StripeService')
-
                                                         @foreach($customer['current_plans'] as $plan)
-                                                            
                                                             @php
                                                                 $subscription = $stripeService->getSubscriptionCustomer($customer['oid'],$plan['oid']);
                                                                 $isCanceled = $stripeService->checkSubscriptionCancellationStatus($subscription['id']);

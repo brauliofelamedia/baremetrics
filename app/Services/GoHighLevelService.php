@@ -19,7 +19,7 @@ class GoHighLevelService
     public function __construct()
     {
         $this->config = Configuration::first();
-        $this->apiKey = $this->config->ghl_client_id;
+        $this->apiKey = $this->config->ghl_client_id ?: config('services.gohighlevel.client_id');
         $this->base_url = 'https://services.leadconnectorhq.com';
         $this->location = config('services.gohighlevel.location');
         $this->client = new Client();

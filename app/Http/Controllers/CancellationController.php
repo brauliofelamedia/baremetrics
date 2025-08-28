@@ -24,23 +24,29 @@ class CancellationController extends Controller
      */
     public function index(Request $request)
     {
-        $customers = $this->stripeService->searchCustomersByEmail('jorge@felamedia.com');
-        //dd($customers);
         // Obtener el email desde la query string: ?email=...
         $email = trim((string) $request->query('email', ''));
 
-        if ($email) {
+        if ($email !== '') {
             $customers = $this->getCustomers($email);
-            $customers = $customers['customers'];
+
+            // Algunas implementaciones devuelven ['customers' => [...]]; soportamos ambas estructuras
+            if (is_array($customers) && isset($customers['customers']) && is_array($customers['customers'])) {
+                $customers = $customers['customers'];
+            } elseif (!is_array($customers)) {
+                $customers = [];
+            }
+
+            // Cuando se hizo una búsqueda, ocultamos el formulario auxiliar de "nueva búsqueda"
+            $showSearchForm = false;
         } else {
             $customers = [];
+            $showSearchForm = true;
         }
-
-        //dd($customers);
 
         return view('cancellation.index', [
             'customers' => $customers,
-            'showSearchForm' => true,
+            'showSearchForm' => $showSearchForm,
             'searchedEmail' => $email,
         ]);
     }
@@ -60,9 +66,9 @@ class CancellationController extends Controller
 
         try {
             $email = trim(strtolower($request->get('email')));
-            
+
             // Buscar el customer por email
-            $customers = $this->getCustomers();
+            $customers = $this->getCustomers($email);
 
             $result = [
                 'success' => false,
@@ -112,7 +118,7 @@ class CancellationController extends Controller
        return view('cancellation.manual', compact('subscription_id', 'customer_id'));
     }
 
-    private function getCustomers(string $search)
+    private function getCustomers(string $search = '')
     {
         $sources = $this->baremetricsService->getSources();
 
