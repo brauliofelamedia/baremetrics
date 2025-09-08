@@ -86,6 +86,18 @@ class BaremetricsController extends Controller
         ], 500);
     }
 
+    public function createCustomer()
+    {
+        $unique = str_replace('.', '', uniqid('', true));
+        $customer = [
+            'email' => 'braulio@felamedia.com',
+            'name' => 'Braulio Miramontes',
+            'oid' => $unique,
+        ];
+
+        $this->baremetricsService->createCustomer($customer, 'd9d9a82f-5df7-4b1f-9cb0-6fdf7ab2c8a8');
+    }
+
     /**
      * Get plans from Baremetrics for a specific source
      *

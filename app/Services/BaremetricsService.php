@@ -181,6 +181,52 @@ class BaremetricsService
     }
 
     /**
+     * Create a new customer in Baremetrics for a specific source
+     *
+     * @param array $customer Associative array with customer details (name, email, oid)
+     * @param string $sourceId The source ID to create the customer under
+     * @return array|null
+     */
+    public function createCustomer($customer, $sourceId)
+    {
+        try {
+            $url = $this->baseUrl . '/' . $sourceId . '/customers';
+
+            $body = [
+                'name' => $customer['name'] ?? null,
+                'email' => $customer['email'] ?? null,
+                'oid' => $customer['oid'] ?? null,
+            ];
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->post($url, $body);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Baremetrics API Error - Create customer', [
+                'status' => $response->status(),
+                'response' => $response->body(),
+                'source_id' => $sourceId,
+                'customer' => $customer,
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Baremetrics Service Exception - Create customer', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Get customers from Baremetrics for a specific source
      *
      * @param string $sourceId The source ID to get customers for

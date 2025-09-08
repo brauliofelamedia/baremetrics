@@ -65,6 +65,15 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     });
 
     // Rutas para Stripe (ahora bajo admin)
+    // PayPal Routes
+    Route::prefix('paypal')->name('paypal.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PayPalController::class, 'index'])->name('index');
+        Route::get('/subscriptions', [\App\Http\Controllers\PayPalController::class, 'getSubscriptions'])->name('subscriptions');
+        Route::get('/subscriptions/{subscriptionId}', [\App\Http\Controllers\PayPalController::class, 'getSubscriptionDetails'])->name('subscription.details');
+        Route::get('/stats', [\App\Http\Controllers\PayPalController::class, 'getSubscriptionStats'])->name('stats');
+    });
+
+    // Stripe Routes
     Route::prefix('stripe')->name('stripe.')->group(function () {
         Route::get('/', [StripeController::class, 'index'])->name('index');
         Route::post('/customers/cancel', [StripeController::class, 'cancelSubscription'])->name('customers.cancel');
@@ -91,12 +100,13 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/sources', [BaremetricsController::class, 'getSources'])->name('sources');
         Route::get('/users', [BaremetricsController::class, 'getUsers'])->name('users');
         Route::get('/config', [BaremetricsController::class, 'getConfig'])->name('config');
-    // Página para ejecutar la actualización de campos desde GHL
-    Route::get('/update-fields', [BaremetricsController::class, 'showUpdateFields'])->name('update-fields');
-    // Inicia el proceso en background (dispara un comando Artisan)
-    Route::post('/update-fields/start', [BaremetricsController::class, 'updateCustomerFieldsFromGHL'])->name('update-fields.start');
-    // Estado / progreso
-    Route::get('/update-fields/status', [BaremetricsController::class, 'getUpdateStatus'])->name('update-fields.status');
+        Route::get('/create/customer', [BaremetricsController::class, 'createCustomer'])->name('create.customer');
+        // Página para ejecutar la actualización de campos desde GHL
+        Route::get('/update-fields', [BaremetricsController::class, 'showUpdateFields'])->name('update-fields');
+        // Inicia el proceso en background (dispara un comando Artisan)
+        Route::post('/update-fields/start', [BaremetricsController::class, 'updateCustomerFieldsFromGHL'])->name('update-fields.start');
+        // Estado / progreso
+        Route::get('/update-fields/status', [BaremetricsController::class, 'getUpdateStatus'])->name('update-fields.status');
 
         // Rutas que requieren sourceId
         Route::prefix('{sourceId}')->group(function () {

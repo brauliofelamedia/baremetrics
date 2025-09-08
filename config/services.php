@@ -49,6 +49,13 @@ return [
         'barecancel_js_url' => env('BAREMETRICS_BARECANCEL_JS_URL', 'https://baremetrics-barecancel.baremetrics.com/js/application.js'),
     ],
 
+    'paypal' => [
+        'client_id' => env('PAYPAL_CLIENT_ID'),
+        'secret' => env('PAYPAL_SECRET'),
+        'sandbox' => env('PAYPAL_SANDBOX', true),
+        'webhook_id' => env('PAYPAL_WEBHOOK_ID'),
+    ],
+
     'gohighlevel' => [
         'authorization_url' => env('GHL_AUTORIZATION_URL'),
         'scopes' => env('GHL_SCOPES'),
