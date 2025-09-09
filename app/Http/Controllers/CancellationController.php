@@ -7,6 +7,9 @@ use App\Services\BaremetricsService;
 use Illuminate\Http\Request;
 use Log;
 use Cache;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class CancellationController extends Controller
 {
@@ -150,7 +153,127 @@ class CancellationController extends Controller
                 $customersExtract = array_merge($customersExtract, $customers);
             }
         }
+        
         return $customersExtract;
+    }
+
+    /**
+     * Envía el correo electrónico con el enlace de verificación
+     * 
+     * @param string $email Correo electrónico del destinatario
+     * @param string $verificationUrl URL para verificar la cancelación
+     * @return bool Indica si el correo se envió correctamente
+     */
+    private function sendVerificationEmail(string $email, string $verificationUrl)
+    {
+        try {
+            Mail::send('emails.cancellation-verification', [
+                'verificationUrl' => $verificationUrl,
+                'email' => $email
+            ], function($message) use ($email) {
+                $message->to($email)
+                    ->subject('Verificación de cancelación de suscripción');
+            });
+            
+            return !Mail::failures();
+        } catch (\Exception $e) {
+            \Log::error('Error al enviar correo de verificación: ' . $e->getMessage(), [
+                'email' => $email,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Envía un correo de verificación con un token mágico para la cancelación
+     */
+    public function sendCancellationVerification(Request $request)
+    {
+        $email = trim((string) $request->query('email', ''));
+
+        if ($email === '') {
+            return redirect()->back()->with('error', 'El parámetro email es obligatorio.');
+        }
+
+        try {
+            // Verificamos si el email existe en nuestros sistemas
+            $customers = $this->getCustomers($email);
+            
+            // Verificamos que haya clientes con ese email
+            if (is_array($customers) && isset($customers['customers']) && is_array($customers['customers'])) {
+                $customersArray = $customers['customers'];
+            } elseif (is_array($customers)) {
+                $customersArray = $customers;
+            } else {
+                $customersArray = [];
+            }
+
+            $matchedCustomers = array_filter($customersArray, function ($customer) use ($email) {
+                return isset($customer['email']) && strtolower(trim($customer['email'])) === strtolower(trim($email));
+            });
+
+            if (empty($matchedCustomers)) {
+                return redirect()->back()->with('error', 'No se encontró ningún cliente con ese email.');
+            }
+
+            // Generamos un token único
+            $token = Str::random(64);
+            
+            // Almacenamos el token en la caché con una duración de 15 minutos
+            Cache::put('cancellation_token_' . $token, $email, Carbon::now()->addMinutes(15));
+            
+            // Generamos la URL de verificación
+            $verificationUrl = route('cancellation.verify', ['token' => $token]);
+            
+            // Enviamos el correo con el enlace de verificación
+            $mailSent = $this->sendVerificationEmail($email, $verificationUrl);
+            
+            if ($mailSent) {
+                return view('cancellation.verification-sent', [
+                    'email' => $email
+                ])->with('success', 'Se ha enviado un enlace de verificación a su correo electrónico. El enlace expirará en 15 minutos.');
+            } else {
+                return view('cancellation.verification-sent', [
+                    'email' => $email
+                ])->with('error', 'No se pudo enviar el correo de verificación. Por favor, intente nuevamente.');
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('Error al enviar correo de verificación: ' . $e->getMessage(), [
+                'email' => $email,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return view('cancellation.verification-sent', [
+                'email' => $email
+            ])->with('error', 'Error inesperado al enviar el correo de verificación. Por favor, inténtelo de nuevo.');
+        }
+    }
+
+    /**
+     * Verifica el token mágico y redirige al proceso de cancelación
+     */
+    public function verifyCancellationToken(Request $request)
+    {
+        $token = $request->query('token', '');
+        
+        if (empty($token)) {
+            return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
+        }
+        
+        // Obtenemos el email asociado al token desde la caché
+        $email = Cache::get('cancellation_token_' . $token);
+        
+        if (empty($email)) {
+            return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
+        }
+        
+        // Eliminamos el token usado para evitar reuso
+        Cache::forget('cancellation_token_' . $token);
+        
+        // Redirigimos al proceso de cancelación
+        return redirect()->route('cancellation.customer.ghl', ['email' => $email]);
     }
 
     public function cancellationCustomerGHL(Request $request)
@@ -158,10 +281,9 @@ class CancellationController extends Controller
         $email = trim((string) $request->query('email', ''));
 
         if ($email === '') {
-            return response()->json([
-                'success' => false,
-                'error' => 'El parámetro email es obligatorio.'
-            ], 400);
+            return view('cancellation.index', [
+                'showSearchForm' => true
+            ])->with('error', 'El parámetro email es obligatorio.');
         }
 
         $customers = $this->getCustomers($email);
@@ -170,10 +292,10 @@ class CancellationController extends Controller
         $plans = $customer['current_plans'] ?? [];
 
         if (!$customer) {
-            return response()->json([
-                'success' => false,
-                'error' => 'No se encontró ningún cliente con ese email.'
-            ], 404);
+            return view('cancellation.index', [
+                'showSearchForm' => false,
+                'searchedEmail' => $email
+            ])->with('error', 'No se encontró ningún cliente con ese email.');
         }
         
         foreach($plans as $plan){
@@ -189,9 +311,9 @@ class CancellationController extends Controller
             }
         }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'El cliente no tiene planes de stripe por cancelar'
-        ]);
+        return view('cancellation.no-plans', [
+            'email' => $email,
+            'customer' => $customer
+        ])->with('message', 'El cliente no tiene planes de Stripe por cancelar');
     }
 }

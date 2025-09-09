@@ -5,6 +5,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\BaremetricsController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\GoHighLevelController;
+use App\Http\Controllers\CancellationController;
 
 // Ruta principal - redirigir al dashboard si está autenticado
 Route::get('/', function () {
@@ -55,6 +56,9 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     Route::get('cancellations/search/{search?}', [App\Http\Controllers\CancellationController::class, 'searchByEmail'])->name('cancellations.search');
     Route::get('cancellations/{customer_id}/{subscription_id}', [App\Http\Controllers\CancellationController::class, 'manualCancellation'])->name('cancellations.manual');
     Route::post('cancellations/stripe/cancel', [App\Http\Controllers\CancellationController::class, 'cancelSubscription'])->name('cancellations.cancel');
+    Route::get('cancellations/send-verification', [App\Http\Controllers\CancellationController::class, 'sendCancellationVerification'])->name('cancellations.send-verification');
+    Route::get('cancellations/verify', [App\Http\Controllers\CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
+    Route::get('cancellations/customer-ghl', [App\Http\Controllers\CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
 
     //GoHighLevel
     Route::prefix('ghlevel')->name('ghlevel.')->group(function () {
@@ -115,6 +119,13 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
             Route::get('/subscriptions', [BaremetricsController::class, 'getSubscriptions'])->name('subscriptions');
         });
     });
+});
+
+Route::prefix('gohighlevel')->middleware(['web'])->group(function () {
+    Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
+    Route::get('cancellation/send-verification', [CancellationController::class, 'sendCancellationVerification'])->name('cancellation.send.verification');
+    Route::get('cancellation/customer-ghl', [CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
+    Route::get('cancellation', [CancellationController::class, 'cancellationCustomerGHL'])->where('email', '.*');
 });
 
 // Ruta home después del login
