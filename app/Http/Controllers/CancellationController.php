@@ -178,10 +178,10 @@ class CancellationController extends Controller
         
         foreach($plans as $plan){
 
-            $subscription = $stripeService->getSubscriptionCustomer($customer['oid'],$plan['oid']);
+            $subscription = $this->stripeService->getSubscriptionCustomer($customer['oid'],$plan['oid']);
             $isCanceled = false;
             if ($subscription && isset($subscription['id'])) {
-                $isCanceled = $stripeService->checkSubscriptionCancellationStatus($subscription['id']);
+                $isCanceled = $this->stripeService->checkSubscriptionCancellationStatus($subscription['id']);
             }
 
             if ($customer['is_canceled'] == false && !$isCanceled) {
