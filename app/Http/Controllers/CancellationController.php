@@ -152,4 +152,46 @@ class CancellationController extends Controller
         }
         return $customersExtract;
     }
+
+    public function cancellationCustomerGHL(Request $request)
+    {
+        $email = trim((string) $request->query('email', ''));
+
+        if ($email === '') {
+            return response()->json([
+                'success' => false,
+                'error' => 'El parámetro email es obligatorio.'
+            ], 400);
+        }
+
+        $customers = $this->getCustomers($email);
+        
+        $customer = $customers['customers'][0] ?? null;
+        $plans = $customer['current_plans'] ?? [];
+
+        if (!$customer) {
+            return response()->json([
+                'success' => false,
+                'error' => 'No se encontró ningún cliente con ese email.'
+            ], 404);
+        }
+        
+        foreach($plans as $plan){
+
+            $subscription = $stripeService->getSubscriptionCustomer($customer['oid'],$plan['oid']);
+            $isCanceled = false;
+            if ($subscription && isset($subscription['id'])) {
+                $isCanceled = $stripeService->checkSubscriptionCancellationStatus($subscription['id']);
+            }
+
+            if ($customer['is_canceled'] == false && !$isCanceled) {
+                return redirect()->route('admin.cancellations.manual', ['customer_id' => $customer['oid'],'subscription_id' => $plan['oid']])->with('message', 'Redirigiendo para cancelar el plan.');
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'El cliente no tiene planes de stripe por cancelar'
+        ]);
+    }
 }
