@@ -316,4 +316,9 @@ class CancellationController extends Controller
             'customer' => $customer
         ])->with('message', 'El cliente no tiene planes de Stripe por cancelar');
     }
+
+    public function cancellation()
+    {
+        return view('cancellation.form');
+    }
 }

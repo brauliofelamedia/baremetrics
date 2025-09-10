@@ -122,6 +122,7 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
 });
 
 Route::prefix('gohighlevel')->middleware(['web'])->group(function () {
+    Route::get('cancellation/form', [CancellationController::class, 'cancellation'])->name('cancellation.form');
     Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
     Route::get('cancellation/send-verification', [CancellationController::class, 'sendCancellationVerification'])->name('cancellation.send.verification');
     Route::get('cancellation/customer-ghl', [CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
