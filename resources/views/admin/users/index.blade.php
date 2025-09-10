@@ -2,11 +2,28 @@
 
 @section('title', 'Gestión de Usuarios')
 
+@push('styles')
+<style>
+    .action-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .content-header {
+        display: none;
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="h3 mb-0">Gestión de Usuarios</h1>
     <a href="{{ route('admin.users.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-2"></i>Nuevo Usuario
+        <i class="fa-solid fa-circle-plus me-2"></i>Nuevo Usuario
     </a>
 </div>
 
@@ -66,27 +83,27 @@
                             @endif
                         </td>
                         <td>
-                            <div class="btn-group btn-group-sm">
-                                <a href="{{ route('admin.users.show', $user) }}" class="btn btn-outline-info" title="Ver">
-                                    <i class="bi bi-eye"></i>
+                            <div class="d-flex gap-2">
+                                <a href="{{ route('admin.users.show', $user) }}" class="btn btn-success rounded-1 action-btn" title="Ver">
+                                    <i class="fa-solid fa-eye"></i>
                                 </a>
-                                <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-outline-primary" title="Editar">
-                                    <i class="bi bi-pencil"></i>
+                                <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-primary rounded-1 action-btn" title="Editar">
+                                    <i class="fa-solid fa-pen"></i>
                                 </a>
-                                <form action="{{ route('admin.users.toggle-status', $user) }}" method="POST" class="d-inline">
+                                <form action="{{ route('admin.users.toggle-status', $user) }}" method="POST" style="display: none;">
                                     @csrf
-                                    <button type="submit" class="btn btn-outline-{{ $user->email_verified_at ? 'warning' : 'success' }}" 
+                                    <button type="submit" class="btn btn-{{ $user->email_verified_at ? 'warning' : 'success' }} rounded-1 action-btn" 
                                             title="{{ $user->email_verified_at ? 'Desactivar' : 'Activar' }}">
-                                        <i class="bi bi-{{ $user->email_verified_at ? 'pause' : 'play' }}"></i>
+                                        <i class="fa-solid fa-{{ $user->email_verified_at ? 'pause' : 'play' }}"></i>
                                     </button>
                                 </form>
                                 @if($user->id !== auth()->id())
-                                <form action="{{ route('admin.users.destroy', $user) }}" method="POST" class="d-inline" 
+                                <form action="{{ route('admin.users.destroy', $user) }}" method="POST" 
                                       onsubmit="return confirm('¿Estás seguro de eliminar este usuario?')">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit" class="btn btn-outline-danger" title="Eliminar">
-                                        <i class="bi bi-trash"></i>
+                                    <button type="submit" class="btn btn-danger rounded-1 action-btn" title="Eliminar">
+                                        <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </form>
                                 @endif
@@ -96,7 +113,7 @@
                     @empty
                     <tr>
                         <td colspan="6" class="text-center py-4">
-                            <i class="bi bi-people text-muted fs-1"></i>
+                            <i class="fa-solid fa-users text-muted fs-1"></i>
                             <p class="text-muted mt-2">No hay usuarios registrados</p>
                         </td>
                     </tr>
