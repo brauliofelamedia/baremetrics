@@ -122,11 +122,14 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
 });
 
 Route::prefix('gohighlevel')->middleware(['web'])->group(function () {
+    Route::get('cancellation', [CancellationController::class, 'index'])->name('cancellation.index');
     Route::get('cancellation/form', [CancellationController::class, 'cancellation'])->name('cancellation.form');
     Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
     Route::get('cancellation/send-verification', [CancellationController::class, 'sendCancellationVerification'])->name('cancellation.send.verification');
     Route::get('cancellation/customer-ghl', [CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
-    Route::get('cancellation', [CancellationController::class, 'cancellationCustomerGHL'])->where('email', '.*');
+    Route::get('cancellation/manual/{customer_id?}/{subscription_id?}', [CancellationController::class, 'manualCancellation'])->name('cancellation.manual');
+    Route::post('cancellation/cancel', [CancellationController::class, 'publicCancelSubscription'])->name('cancellation.cancel');
+    Route::get('cancellation/search', [CancellationController::class, 'cancellationCustomerGHL'])->where('email', '.*');
 });
 
 // Ruta home después del login

@@ -113,12 +113,40 @@ class CancellationController extends Controller
     /**
      * Procesar cancelación manual
      */
-    public function manualCancellation($customer_id, $subscription_id)
+    public function manualCancellation($customer_id = null, $subscription_id = null)
     {
        $customer_id = request()->get('customer_id', $customer_id);
        $subscription_id = request()->get('subscription_id', $subscription_id);
-
-       return view('cancellation.manual', compact('subscription_id', 'customer_id'));
+       
+       // Obtener datos de la sesión
+       $email = session('cancellation_email');
+       $customer = session('cancellation_customer');
+       $activeSubscriptions = session('cancellation_active_subscriptions', []);
+       
+       // Encontrar la suscripción seleccionada
+       $selectedSubscription = null;
+       foreach ($activeSubscriptions as $subscription) {
+           if ($subscription['customer_id'] == $customer_id && $subscription['subscription_id'] == $subscription_id) {
+               $selectedSubscription = $subscription;
+               break;
+           }
+       }
+       
+       if (!$selectedSubscription && !empty($activeSubscriptions)) {
+           // Si no se encontró la suscripción específica pero hay suscripciones activas,
+           // tomamos la primera por defecto
+           $selectedSubscription = $activeSubscriptions[0];
+           $customer_id = $selectedSubscription['customer_id'];
+           $subscription_id = $selectedSubscription['subscription_id'];
+       }
+       
+       return view('cancellation.manual', [
+           'subscription_id' => $subscription_id,
+           'customer_id' => $customer_id,
+           'email' => $email,
+           'customer' => $customer,
+           'selectedSubscription' => $selectedSubscription
+       ]);
     }
 
     private function getCustomers(string $search = '')
@@ -217,6 +245,52 @@ class CancellationController extends Controller
                 return redirect()->back()->with('error', 'No se encontró ningún cliente con ese email.');
             }
 
+            // Verificamos si tiene suscripciones activas directamente en Stripe
+            $hasActiveSubscriptions = false;
+            foreach ($matchedCustomers as $customer) {
+                try {
+                    // Verificar directamente en Stripe todas las suscripciones del cliente
+                    $allSubscriptions = \Stripe\Subscription::all([
+                        'customer' => $customer['oid'],
+                        'status' => 'all', // Obtenemos todas para verificar su estado
+                        'limit' => 100
+                    ]);
+                    
+                    // Verificamos si hay alguna suscripción activa o en periodo de prueba
+                    foreach ($allSubscriptions->data as $subscription) {
+                        if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                            $hasActiveSubscriptions = true;
+                            break 2;
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Error al obtener suscripciones de Stripe: ' . $e->getMessage(), [
+                        'customer_id' => $customer['oid'],
+                        'email' => $email
+                    ]);
+                    
+                    // Como respaldo, intentamos el método antiguo usando current_plans
+                    if (isset($customer['current_plans']) && is_array($customer['current_plans']) && !empty($customer['current_plans'])) {
+                        foreach ($customer['current_plans'] as $plan) {
+                            if (isset($customer['oid']) && isset($plan['oid'])) {
+                                $subscription = $this->stripeService->getSubscriptionCustomer($customer['oid'], $plan['oid']);
+                                if ($subscription && isset($subscription['id'])) {
+                                    $isCanceled = $this->stripeService->checkSubscriptionCancellationStatus($subscription['id']);
+                                    if (!$isCanceled && $customer['is_canceled'] == false) {
+                                        $hasActiveSubscriptions = true;
+                                        break 2;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!$hasActiveSubscriptions) {
+                return redirect()->back()->with('error', 'No tienes membresías activas de Stripe que puedas cancelar. Todas tus membresías ya se encuentran canceladas.');
+            }
+
             // Generamos un token único
             $token = Str::random(64);
             
@@ -281,44 +355,152 @@ class CancellationController extends Controller
         $email = trim((string) $request->query('email', ''));
 
         if ($email === '') {
-            return view('cancellation.index', [
-                'showSearchForm' => true
-            ])->with('error', 'El parámetro email es obligatorio.');
+            return redirect()->back()->with('error', 'El parámetro email es obligatorio.');
         }
 
         $customers = $this->getCustomers($email);
         
-        $customer = $customers['customers'][0] ?? null;
-        $plans = $customer['current_plans'] ?? [];
+        $customer = $customers[0] ?? ($customers['customers'][0] ?? null);
+        
+        // Array para almacenar las suscripciones activas
+        $activeSubscriptions = [];
 
         if (!$customer) {
-            return view('cancellation.index', [
-                'showSearchForm' => false,
-                'searchedEmail' => $email
-            ])->with('error', 'No se encontró ningún cliente con ese email.');
+            return redirect()->back()->with('error', 'No se encontró ningún cliente con ese email.');
         }
         
-        foreach($plans as $plan){
-
-            $subscription = $this->stripeService->getSubscriptionCustomer($customer['oid'],$plan['oid']);
-            $isCanceled = false;
-            if ($subscription && isset($subscription['id'])) {
-                $isCanceled = $this->stripeService->checkSubscriptionCancellationStatus($subscription['id']);
+        // Obtenemos todas las suscripciones directamente desde Stripe
+        try {
+            $allSubscriptions = \Stripe\Subscription::all([
+                'customer' => $customer['oid'],
+                'status' => 'all', // Obtener todas las suscripciones independientemente del estado
+                'limit' => 100
+            ]);
+            
+            // Filtramos las suscripciones activas
+            foreach ($allSubscriptions->data as $subscription) {
+                if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                    // Obtenemos información del plan desde la suscripción
+                    $plan = [
+                        'oid' => $subscription->plan->id,
+                        'name' => $subscription->plan->nickname ?? 'Plan ' . $subscription->plan->amount/100 . ' ' . strtoupper($subscription->plan->currency),
+                        'amount' => $subscription->plan->amount/100,
+                        'currency' => strtoupper($subscription->plan->currency),
+                        'interval' => $subscription->plan->interval,
+                        'interval_count' => $subscription->plan->interval_count
+                    ];
+                    
+                    $activeSubscriptions[] = [
+                        'subscription' => $subscription,
+                        'plan' => $plan,
+                        'customer_id' => $customer['oid'],
+                        'subscription_id' => $subscription->id
+                    ];
+                }
             }
-
-            if ($customer['is_canceled'] == false && !$isCanceled) {
-                return redirect()->route('admin.cancellations.manual', ['customer_id' => $customer['oid'],'subscription_id' => $plan['oid']])->with('message', 'Redirigiendo para cancelar el plan.');
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener suscripciones de Stripe: ' . $e->getMessage(), [
+                'customer_id' => $customer['oid'],
+                'email' => $email
+            ]);
+            
+            // Como respaldo, intentamos el método antiguo usando los planes de Baremetrics
+            $plans = $customer['current_plans'] ?? [];
+            foreach($plans as $plan){
+                $subscription = $this->stripeService->getSubscriptionCustomer($customer['oid'], $plan['oid']);
+                $isCanceled = false;
+                
+                if ($subscription && isset($subscription['id'])) {
+                    $isCanceled = $this->stripeService->checkSubscriptionCancellationStatus($subscription['id']);
+                    
+                    // Si la suscripción no está cancelada, la agregamos al array de activas
+                    if (!$isCanceled && $customer['is_canceled'] == false) {
+                        $activeSubscriptions[] = [
+                            'subscription' => $subscription,
+                            'plan' => $plan,
+                            'customer_id' => $customer['oid'],
+                            'subscription_id' => $plan['oid']
+                        ];
+                    }
+                }
             }
         }
-
-        return view('cancellation.no-plans', [
+        
+        // Si no hay suscripciones activas, mostramos un mensaje
+        if (empty($activeSubscriptions)) {
+            return redirect()->back()->with('error', 'El cliente no tiene membresías activas de Stripe por cancelar. Todas las membresías ya se encuentran canceladas.');
+        }
+        
+        // Almacenamos en sesión los datos necesarios para el proceso de cancelación
+        session([
+            'cancellation_email' => $email,
+            'cancellation_customer' => $customer,
+            'cancellation_active_subscriptions' => $activeSubscriptions
+        ]);
+        
+        // Si hay solo una suscripción activa, redirigimos directamente a manualCancellation
+        if (count($activeSubscriptions) === 1) {
+            $subscription = $activeSubscriptions[0];
+            return redirect()->route('cancellation.manual', [
+                'customer_id' => $subscription['customer_id'],
+                'subscription_id' => $subscription['subscription_id']
+            ]);
+        }
+        
+        // Si hay múltiples suscripciones, mostramos una vista para seleccionar cuál cancelar
+        return view('cancellation.select_subscription', [
             'email' => $email,
-            'customer' => $customer
-        ])->with('message', 'El cliente no tiene planes de Stripe por cancelar');
+            'customer' => $customer,
+            'activeSubscriptions' => $activeSubscriptions
+        ]);
     }
 
     public function cancellation()
     {
         return view('cancellation.form');
+    }
+    
+    /**
+     * Procesar cancelación de la suscripción (versión pública)
+     */
+    public function publicCancelSubscription(Request $request)
+    {
+        $customer_id = $request->get('customer_id');
+        $subscription_id = $request->get('subscription_id');
+        
+        try {
+            // Obtener el cliente y la suscripción directamente desde Stripe
+            $subscription = \Stripe\Subscription::retrieve($subscription_id);
+            
+            // Verificar que el subscription pertenezca al customer
+            if ($subscription->customer !== $customer_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Esta suscripción no pertenece al cliente especificado.'
+                ], 400);
+            }
+            
+            // Cancelar la suscripción
+            $subscription->cancel();
+            
+            // Registrar la cancelación en nuestros sistemas si es necesario
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'La suscripción ha sido cancelada correctamente.'
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error al cancelar suscripción: ' . $e->getMessage(), [
+                'customer_id' => $customer_id,
+                'subscription_id' => $subscription_id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cancelar la suscripción: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

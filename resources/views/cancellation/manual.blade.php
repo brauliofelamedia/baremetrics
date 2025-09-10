@@ -9,6 +9,17 @@
 <body>
     <div id="message-loading" style="text-align:center; margin-top:40px;">
         <p style="font-size: 18px;font-family:Arial;">Procesando tu cancelación, por favor espera...</p>
+        @if(isset($email))
+        <p style="font-size: 14px;font-family:Arial;color:#666;">Cancelando suscripción para: {{ $email }}</p>
+        @endif
+        @if(isset($selectedSubscription) && isset($selectedSubscription['plan']))
+        <p style="font-size: 14px;font-family:Arial;color:#666;">
+            Plan: {{ $selectedSubscription['plan']['name'] ?? 'No disponible' }}
+            @if(isset($selectedSubscription['plan']['amount']) && isset($selectedSubscription['plan']['currency']))
+            ({{ $selectedSubscription['plan']['amount'] }} {{ strtoupper($selectedSubscription['plan']['currency']) }})
+            @endif
+        </p>
+        @endif
     </div>
 
     <button id="barecancel-trigger" target="_blank" style="display: none;">Cancelar</button>
@@ -25,7 +36,7 @@
     callback_send: function(data) {
         console.table('data:', data);
         $.ajax({
-            url: "{{ route('admin.stripe.customers.cancel') }}",
+            url: "{{ route('cancellation.cancel') }}",
             type: "POST",
             data: {
                 customer_id: "{{ $customer_id }}",
@@ -33,12 +44,12 @@
                 _token: "{{ csrf_token() }}"
             },
             success: function(response) {
-                if (response.message) {
+                if (response.success) {
                     
                     $('#message-loading').html('<p style="font-size: 18px;font-family:Arial;">Se ha cancelado la subscripción correctamente, serás redirigido en 5 segundos...</p>');
 
                     setTimeout(function() {
-                        window.location.href = "{{ route('admin.cancellations.index') }}";
+                        window.location.href = "{{ route('cancellation.index') }}";
                     }, 5000);
                 }
                 
