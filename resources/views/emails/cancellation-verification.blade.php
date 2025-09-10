@@ -6,66 +6,118 @@
     <title>Verificación de Cancelación</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
+            font-family: 'Nunito', Arial, sans-serif;
+            line-height: 1.7;
             color: #333;
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 0;
+            background-color: #f9fafb;
         }
-        .container {
-            background-color: #f7f7f7;
-            border-radius: 5px;
-            padding: 20px;
-            border: 1px solid #e0e0e0;
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            margin: 20px;
         }
-        .header {
+        .email-header {
+            background: linear-gradient(135deg, #5a6fd8 0%, #292272 100%);
+            padding: 30px 20px;
             text-align: center;
-            margin-bottom: 20px;
+        }
+        .logo {
+            max-width: 180px;
+            margin: 0 auto;
+            display: block;
+        }
+        .email-body {
+            padding: 30px;
+            color: #4b5563;
+        }
+        .email-title {
+            color: #ffffff;
+            font-size: 24px;
+            margin: 20px 0 0;
+            font-weight: 700;
+        }
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
         }
         .button {
             display: inline-block;
-            background-color: #4CAF50;
+            background-color: #292272;
             color: white;
-            padding: 10px 20px;
+            padding: 14px 28px;
             text-decoration: none;
-            border-radius: 4px;
+            border-radius: 8px;
             font-weight: bold;
-            margin: 20px 0;
+            font-size: 16px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        .button:hover {
+            background-color: #353092;
+            transform: translateY(-1px);
+        }
+        .info-box {
+            background-color: #f0f4ff;
+            border-left: 4px solid #5a6fd8;
+            padding: 15px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
         }
         .footer {
             margin-top: 30px;
-            font-size: 12px;
-            color: #777;
+            font-size: 13px;
+            color: #9ca3af;
             text-align: center;
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .help-text {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        p {
+            margin: 15px 0;
+        }
+        .link-text {
+            color: #5a6fd8;
+            word-break: break-all;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h2>Verificación de Cancelación de Suscripción</h2>
+    <div class="email-container">
+        <div class="email-header">
+            <img src="{{ asset('assets/img/logo.png') }}" alt="Logo" class="logo">
+            <h1 class="email-title">Verificación de Cancelación</h1>
         </div>
         
-        <p>Hola,</p>
-        
-        <p>Hemos recibido una solicitud para cancelar tu suscripción. Para proceder con la cancelación, necesitamos verificar que eres tú quien lo solicita.</p>
-        
-        <p>Por favor, haz clic en el botón de abajo para continuar con el proceso de cancelación:</p>
-        
-        <div style="text-align: center;">
-            <a href="{{ $verificationUrl }}" class="button">Verificar Cancelación</a>
-        </div>
-        
-        <p><strong>Importante:</strong> Este enlace expirará en 15 minutos por motivos de seguridad.</p>
-        
-        <p>Si no solicitaste cancelar tu suscripción, puedes ignorar este correo electrónico. Tu suscripción seguirá activa.</p>
-        
-        <p>Si tienes problemas con el botón, puedes copiar y pegar el siguiente enlace en tu navegador:</p>
-        <p style="word-break: break-all;">{{ $verificationUrl }}</p>
-        
-        <div class="footer">
-            <p>Este es un correo automático, por favor no responda a este mensaje.</p>
+        <div class="email-body">
+            <p>Hola,</p>
+            
+            <p>Hemos recibido una solicitud para cancelar tu suscripción. Para proceder con la cancelación, necesitamos verificar que eres tú quien lo solicita.</p>
+            
+            <div class="button-container">
+                <a href="{{ $verificationUrl }}" class="button">Verificar Cancelación</a>
+            </div>
+            
+            <div class="info-box">
+                <p style="margin: 0"><strong>Importante:</strong> Este enlace expirará en 15 minutos por motivos de seguridad.</p>
+            </div>
+            
+            <p>Si no solicitaste cancelar tu suscripción, puedes ignorar este correo electrónico. Tu suscripción seguirá activa.</p>
+            
+            <p class="help-text">Si tienes problemas con el botón, puedes copiar y pegar el siguiente enlace en tu navegador:</p>
+            <p class="link-text">{{ $verificationUrl }}</p>
+            
+            <div class="footer">
+                <p>Este es un correo automático, por favor no responda a este mensaje.</p>
+            </div>
         </div>
     </div>
 </body>

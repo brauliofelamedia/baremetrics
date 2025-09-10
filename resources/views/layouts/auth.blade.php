@@ -217,10 +217,14 @@
             font-size: 14px;
         }
     </style>
+
+    @stack('styles')
+    
 </head>
 <body>
     <div class="auth-container">
         @yield('content')
     </div>
+    @stack('scripts')
 </body>
 </html>
