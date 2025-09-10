@@ -9,20 +9,20 @@
             font-family: 'Nunito', Arial, sans-serif;
             line-height: 1.7;
             color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 0;
             background-color: #f9fafb;
+            padding: 0;
+            margin: 0;
         }
         .email-container {
             background-color: #ffffff;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-            margin: 20px;
+            margin: 20px auto;
+            max-width: 600px;
         }
         .email-header {
-            background: linear-gradient(135deg, #5a6fd8 0%, #292272 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
             padding: 30px 20px;
             text-align: center;
         }
@@ -34,9 +34,11 @@
         .email-body {
             padding: 30px;
             color: #4b5563;
+            max-width: 600px;
+            margin: 0 auto;
         }
         .email-title {
-            color: #ffffff;
+            color: #292272;
             font-size: 24px;
             margin: 20px 0 0;
             font-weight: 700;
@@ -103,7 +105,7 @@
             <p>Hemos recibido una solicitud para cancelar tu suscripción. Para proceder con la cancelación, necesitamos verificar que eres tú quien lo solicita.</p>
             
             <div class="button-container">
-                <a href="{{ $verificationUrl }}" class="button">Verificar Cancelación</a>
+                <a href="{{ $verificationUrl }}" class="button" style="color:white;">Verificar cancelación</a>
             </div>
             
             <div class="info-box">
