@@ -18,7 +18,7 @@
                     @endif
 
                     @if(session('error'))
-                        <div class="alert alert-danger alert-dismissible fade show">
+                        <div class="alert {{ session('error') === 'No se encontró ningún cliente con ese email.' ? 'alert-no-customer' : 'alert-danger' }} alert-dismissible fade show">
                             {{ session('error') }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
@@ -196,6 +196,24 @@
         padding: 2px 10px;
         border-radius: 0;
         font-size: 12px; 
+    }
+    .alert-no-customer {
+        background-color: #dc3545;
+        color: white;
+        font-weight: bold;
+        border: 2px solid #b02a37;
+        padding: 15px;
+        border-radius: 5px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .alert-danger {
+        padding: 7px;
+        background-color: red;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        color: white;
+        font-weight: bold;
     }
 </style>
 @endpush

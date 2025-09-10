@@ -20,6 +20,15 @@
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 
     <style>
+        .alert-danger {
+            padding: 7px;
+            background-color: red;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            color: white;
+            font-weight: bold;
+        }
+        
         * {
             margin: 0;
             padding: 0;

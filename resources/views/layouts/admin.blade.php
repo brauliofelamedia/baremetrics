@@ -28,6 +28,17 @@
             --bs-accent-fresh: #decae5;
         }
         
+        /* Estilo especial para mensaje de error "No se encontró ningún cliente con ese email" */
+        .alert-no-customer {
+            background-color: #dc3545;
+            color: white;
+            font-weight: bold;
+            border: 2px solid #b02a37;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
         body {
             font-size: 0.875rem;
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
