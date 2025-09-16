@@ -368,9 +368,22 @@ class BaremetricsService
         }
     }
 
+    /**
+     * Update customer attributes in Baremetrics
+     * 
+     * @param string $customerId The customer ID in Baremetrics
+     * @param array $ghlData The data from GoHighLevel containing customer attributes
+     * @return array|null Response from Baremetrics API or null if failed
+     */
     public function updateCustomerAttributes($customerId, $ghlData)
     {
         $url = $this->baseUrl . '/attributes';
+
+        // Log received data for debugging
+        Log::debug('Updating customer attributes', [
+            'customer_id' => $customerId,
+            'received_data' => $ghlData,
+        ]);
 
         // Map of field IDs to ghlData keys
         $mapping = [
@@ -382,31 +395,94 @@ class BaremetricsService
             '727707002' => 'state',
             '727709283' => 'location',
             '727708657' => 'zodiac_sign',
+            '750414465' => 'subscriptions',
         ];
 
         $payloadAttributes = [];
+        $includedFields = [];
+        $skippedFields = [];
 
         foreach ($mapping as $fieldId => $key) {
-            $value = $ghlData[$key] ?? null;
+            // Check for possible key variations (with or without 'GHL:' prefix)
+            $rawKey = $key;
+            $prefixedKey = 'GHL: ' . ucfirst($key);
+            $prefixedKeyNoSpace = 'GHL:' . ucfirst($key);
+            $prefixedKeySubscriptions = 'GHL: Subscriptions';
+            $prefixedKeySubscriptionsNew = 'GHL: Subscriptions New'; // Específico para este campo
+            
+            // Additional keys for "Subscriptions"
+            $possibleKeys = [$rawKey, $prefixedKey, $prefixedKeyNoSpace];
+            
+            // Add special handling for subscription field
+            if ($key === 'subscriptions') {
+                $possibleKeys = array_merge($possibleKeys, [
+                    $prefixedKeySubscriptions, 
+                    $prefixedKeySubscriptionsNew, 
+                    'GHL:Subscriptions', 
+                    'subscription', 
+                    'GHL: Subscription',
+                    'GHL:Subscription',
+                    'subscription_new',
+                    'subscriptions_new',
+                ]);
+            }
+            
+            // Try to get the value using different possible key formats
+            $value = null;
+            foreach ($possibleKeys as $possibleKey) {
+                if (isset($ghlData[$possibleKey])) {
+                    $value = $ghlData[$possibleKey];
+                    break;
+                } elseif (isset($ghlData[strtolower($possibleKey)])) {
+                    $value = $ghlData[strtolower($possibleKey)];
+                    break;
+                }
+            }
+            
+            // Log the key being processed for debugging
+            Log::debug("Processing field: {$key}", [
+                'field_id' => $fieldId,
+                'possible_keys' => $possibleKeys,
+                'value_found' => $value !== null ? 'yes' : 'no',
+                'value' => $value,
+            ]);
 
-            // Only include attributes with non-null values
-            if ($value !== null) {
+            // Only include attributes with valid values (not null, not empty string)
+            if ($value !== null && $value !== '') {
                 $payloadAttributes[] = [
                     'customer_oid' => (string) $customerId,
                     'field_id' => (string) $fieldId,
                     'value' => $value,
                 ];
+                $includedFields[$key] = $value;
+            } else {
+                $skippedFields[$key] = $value;
             }
         }
 
+        // Log which fields were included and which were skipped
+        Log::debug('Fields processing results', [
+            'included_fields' => $includedFields,
+            'skipped_fields' => $skippedFields,
+        ]);
+
         // If there's nothing to send, return early
         if (empty($payloadAttributes)) {
+            Log::info('No valid attributes to update for customer in Baremetrics', [
+                'customer_id' => $customerId,
+            ]);
             return null;
         }
 
         $body = [
             'attributes' => $payloadAttributes,
         ];
+
+        // Log the payload we're about to send
+        Log::debug('Sending attributes payload to Baremetrics', [
+            'payload' => $body,
+            'url' => $url,
+        ]);
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $this->apiKey,
@@ -415,13 +491,24 @@ class BaremetricsService
         ])->post($url, $body);
 
         if ($response->successful()) {
-            return $response->json();
-
+            $responseData = $response->json();
+            
             Log::info('Customer attributes updated successfully in Baremetrics', [
                 'customer_id' => $customerId,
+                'updated_fields' => array_keys($includedFields),
+                'response' => $responseData,
             ]);
+            
+            return $responseData;
         }
 
+        Log::error('Failed to update customer attributes in Baremetrics', [
+            'customer_id' => $customerId,
+            'status' => $response->status(),
+            'response' => $response->body(),
+            'request_payload' => $body,
+        ]);
+        
         return null;
     }
 
@@ -483,5 +570,40 @@ class BaremetricsService
     public function getBarecancelJsUrl(): string
     {
         return config('services.baremetrics.barecancel_js_url');
+    }
+    
+    /**
+     * Get all available custom fields from Baremetrics
+     * This is useful for discovering field IDs
+     *
+     * @return array|null
+     */
+    public function getCustomFields(): ?array
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->get($this->baseUrl . '/attributes/fields');
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('Baremetrics API Error - Custom Fields', [
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Baremetrics Service Exception - Custom Fields', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
     }
 }

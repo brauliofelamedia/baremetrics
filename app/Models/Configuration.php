@@ -11,6 +11,8 @@ class Configuration extends Model
         'ghl_client_secret',
         'ghl_code',
         'ghl_token',
+        'ghl_refresh_token',
+        'ghl_token_expires_at',
         'ghl_location',
         'ghl_company'
     ];
