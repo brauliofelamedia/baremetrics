@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-use Log;
+use Illuminate\Support\Facades\Log;
 use App\Services\GoHighLevelService;
 use Illuminate\Http\Request;
 use App\Models\Configuration;
@@ -28,14 +28,27 @@ class GoHighLevelController extends Controller
     public function authorization(Request $request)
     {
         $code = $request->get('code');
-        $token = $this->ghl->getToken($code);
         
-        $conf = Configuration::first();
-        $conf->ghl_code = $code;
-        $conf->ghl_token = $token;
-        $conf->save();
-
-        return redirect()->route('admin.dashboard')->with('success', 'Se obtuvo el código de autorización exitosamente');
+        try {
+            // The getToken method already handles saving the token data in configuration
+            // if a configuration record exists
+            $token = $this->ghl->getToken($code);
+            
+            // Make sure we have a configuration record
+            $conf = Configuration::first();
+            if (!$conf) {
+                // Create a new configuration if it doesn't exist
+                $conf = new Configuration();
+                $conf->ghl_code = $code;
+                $conf->ghl_token = $token;
+                $conf->save();
+            }
+            
+            return redirect()->route('admin.dashboard')->with('success', 'Se obtuvo el código de autorización exitosamente');
+        } catch (\Exception $e) {
+            Log::error('Error in GHL authorization', ['error' => $e->getMessage()]);
+            return redirect()->route('admin.dashboard')->with('error', 'Error al obtener autorización: ' . $e->getMessage());
+        }
     }
 
     public function getCustomFields()
