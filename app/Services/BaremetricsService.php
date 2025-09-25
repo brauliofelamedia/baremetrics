@@ -396,6 +396,7 @@ class BaremetricsService
             '727709283' => 'location',
             '727708657' => 'zodiac_sign',
             '750414465' => 'subscriptions',
+            '750342442' => 'coupon_code',
         ];
 
         $payloadAttributes = [];

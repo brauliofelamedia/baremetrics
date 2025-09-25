@@ -334,7 +334,8 @@ class GoHighLevelService
             $res = $this->client->sendAsync($request)->wait();
             $data = json_decode($res->getBody(), true);
 
-            return $data['data'][0]['status'];
+            return $data['data'][0] ?? null;
+            //return $data['data'][0]['status'];
 
         } catch (\Exception $e) {
             Log::error('Error al obtener datos de suscripción por ID de contacto', [

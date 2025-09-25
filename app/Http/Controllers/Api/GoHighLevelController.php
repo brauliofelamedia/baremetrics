@@ -35,7 +35,12 @@ class GoHighLevelController extends Controller
             
             $stripe_id = $stripeCustomer['data'][0]['id'] ?? null;
             
-            $subscription_status = $this->ghlService->getSubscriptionStatusByContact($ghl_customer['contacts'][0]['id'] ?? '');
+            $subscription = $this->ghlService->getSubscriptionStatusByContact($ghl_customer['contacts'][0]['id'] ?? '');
+
+            $couponCode = $subscription['coupon_code'] ?? null;
+            $subscription_status = $subscription['status'] ?? 'none';
+
+            return response()->json(['message' => 'Subscription', 'ghl_customer' => $subscription_status], 200);
 
             if (!empty($ghl_customer['contacts']) && $stripeCustomer['data']) {
                 $customFields = collect($ghl_customer['contacts'][0]['customFields']);
@@ -56,7 +61,8 @@ class GoHighLevelController extends Controller
                     'state' => $ghl_customer['contacts'][0]['state'] ?? '-',
                     'location' => $city,
                     'zodiac_sign' => $sign['value'] ?? '-',
-                    'subscriptions' => $subscription_status ?? 'none'
+                    'subscriptions' => $subscription_status ?? 'none',
+                    'coupon_code' => $couponCode ?? null
                 ];
 
                 // Actualizar en Baremetrics
