@@ -63,7 +63,7 @@ class GoHighLevelController extends Controller
                     'coupon_code' => $couponCode ?? null
                 ];
 
-                return response()->json(['message' => 'GHL Data', 'ghl_customer' => $ghlData], 200);
+                //return response()->json(['message' => 'GHL Data', 'ghl_customer' => $ghlData], 200);
 
                 // Actualizar en Baremetrics
                 $result = $this->baremetricsService->updateCustomerAttributes($stripe_id, $ghlData);
