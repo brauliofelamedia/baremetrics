@@ -66,17 +66,23 @@ class TestCancellationAdminNotification extends Command
             
             $this->info("✅ Correo enviado al usuario: {$email}");
             
-            // Enviar copia al administrador
-            Mail::send('emails.cancellation-verification', [
-                'verificationUrl' => $verificationUrl,
-                'email' => $email,
-                'isAdminCopy' => true
-            ], function($message) use ($email) {
-                $message->to('braulio@felamedia.com')
-                    ->subject('COPIA ADMIN - Solicitud de cancelación: ' . $email . ' - PRUEBA');
-            });
-            
-            $this->info("✅ Copia administrativa enviada a: braulio@felamedia.com");
+            // Enviar copia a los administradores configurados
+            $adminEmails = $this->getCancellationNotificationEmails();
+            if (!empty($adminEmails)) {
+                foreach ($adminEmails as $adminEmail) {
+                    Mail::send('emails.cancellation-verification', [
+                        'verificationUrl' => $verificationUrl,
+                        'email' => $email,
+                        'isAdminCopy' => true
+                    ], function($message) use ($email, $adminEmail) {
+                        $message->to($adminEmail)
+                            ->subject('COPIA ADMIN - Solicitud de cancelación: ' . $email . ' - PRUEBA');
+                    });
+                }
+                $this->info("✅ Copias administrativas enviadas a: " . implode(', ', $adminEmails));
+            } else {
+                $this->warn("⚠️ No hay correos de administrador configurados en CANCELLATION_NOTIFICATION_EMAILS");
+            }
             
             // Verificar que el token está almacenado en la base de datos
             $storedToken = CancellationToken::where('token', $token)->first();
@@ -105,5 +111,27 @@ class TestCancellationAdminNotification extends Command
             $this->error("📋 Trace: " . $e->getTraceAsString());
             return 1;
         }
+    }
+    
+    /**
+     * Obtiene los correos electrónicos configurados para notificaciones de cancelación
+     */
+    private function getCancellationNotificationEmails()
+    {
+        $emailsString = env('CANCELLATION_NOTIFICATION_EMAILS', '');
+        
+        if (empty($emailsString)) {
+            return [];
+        }
+        
+        // Dividir por comas y limpiar espacios
+        $emails = array_map('trim', explode(',', $emailsString));
+        
+        // Filtrar correos vacíos y validar formato básico
+        $validEmails = array_filter($emails, function($email) {
+            return !empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL);
+        });
+        
+        return array_values($validEmails);
     }
 }

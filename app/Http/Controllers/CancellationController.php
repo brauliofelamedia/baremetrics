@@ -205,15 +205,20 @@ class CancellationController extends Controller
                     ->subject('Verificación de cancelación de suscripción');
             });
             
-            // Enviar copia al administrador
-            Mail::send('emails.cancellation-verification', [
-                'verificationUrl' => $verificationUrl,
-                'email' => $email,
-                'isAdminCopy' => true
-            ], function($message) use ($email) {
-                $message->to('braulio@felamedia.com')
-                    ->subject('COPIA ADMIN - Solicitud de cancelación: ' . $email);
-            });
+            // Enviar copia a los administradores configurados
+            $adminEmails = $this->getCancellationNotificationEmails();
+            if (!empty($adminEmails)) {
+                foreach ($adminEmails as $adminEmail) {
+                    Mail::send('emails.cancellation-verification', [
+                        'verificationUrl' => $verificationUrl,
+                        'email' => $email,
+                        'isAdminCopy' => true
+                    ], function($message) use ($email, $adminEmail) {
+                        $message->to($adminEmail)
+                            ->subject('COPIA ADMIN - Solicitud de cancelación: ' . $email);
+                    });
+                }
+            }
             
             return !Mail::failures();
         } catch (\Exception $e) {
@@ -561,6 +566,34 @@ class CancellationController extends Controller
                 'message' => 'Error al invalidar el token'
             ], 500);
         }
+    }
+
+    /**
+     * Obtiene los correos electrónicos configurados para notificaciones de cancelación
+     */
+    private function getCancellationNotificationEmails()
+    {
+        $emailsString = env('CANCELLATION_NOTIFICATION_EMAILS', '');
+        
+        if (empty($emailsString)) {
+            \Log::warning('No hay correos configurados para notificaciones de cancelación');
+            return [];
+        }
+        
+        // Dividir por comas y limpiar espacios
+        $emails = array_map('trim', explode(',', $emailsString));
+        
+        // Filtrar correos vacíos y validar formato básico
+        $validEmails = array_filter($emails, function($email) {
+            return !empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL);
+        });
+        
+        \Log::info('Correos de notificación de cancelación configurados', [
+            'emails' => $validEmails,
+            'total' => count($validEmails)
+        ]);
+        
+        return array_values($validEmails);
     }
 
     /**
