@@ -10,6 +10,7 @@ use Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Models\CancellationToken;
 
 class CancellationController extends Controller
 {
@@ -195,12 +196,23 @@ class CancellationController extends Controller
     private function sendVerificationEmail(string $email, string $verificationUrl)
     {
         try {
+            // Enviar correo al usuario
             Mail::send('emails.cancellation-verification', [
                 'verificationUrl' => $verificationUrl,
                 'email' => $email
             ], function($message) use ($email) {
                 $message->to($email)
                     ->subject('Verificación de cancelación de suscripción');
+            });
+            
+            // Enviar copia al administrador
+            Mail::send('emails.cancellation-verification', [
+                'verificationUrl' => $verificationUrl,
+                'email' => $email,
+                'isAdminCopy' => true
+            ], function($message) use ($email) {
+                $message->to('braulio@felamedia.com')
+                    ->subject('COPIA ADMIN - Solicitud de cancelación: ' . $email);
             });
             
             return !Mail::failures();
@@ -294,8 +306,30 @@ class CancellationController extends Controller
             // Generamos un token único
             $token = Str::random(64);
             
-            // Almacenamos el token en la caché con una duración de 15 minutos
+            \Log::info('Generando token de cancelación', [
+                'email' => $email,
+                'token' => substr($token, 0, 20) . '...',
+                'expires_at' => Carbon::now()->addMinutes(15)->toDateTimeString()
+            ]);
+            
+            // Almacenamos el token en la base de datos con una duración de 15 minutos
+            $tokenRecord = CancellationToken::create([
+                'token' => $token,
+                'email' => $email,
+                'expires_at' => Carbon::now()->addMinutes(15)
+            ]);
+            
+            \Log::info('Token almacenado en base de datos', [
+                'token_id' => $tokenRecord->id,
+                'email' => $email
+            ]);
+            
+            // También almacenamos en caché para compatibilidad con el método de verificación existente
             Cache::put('cancellation_token_' . $token, $email, Carbon::now()->addMinutes(15));
+            
+            \Log::info('Token almacenado en caché', [
+                'email' => $email
+            ]);
             
             // Generamos la URL de verificación
             $verificationUrl = route('cancellation.verify', ['token' => $token]);
@@ -336,14 +370,22 @@ class CancellationController extends Controller
             return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
         }
         
-        // Obtenemos el email asociado al token desde la caché
-        $email = Cache::get('cancellation_token_' . $token);
+        // Obtenemos el token desde la base de datos
+        $tokenRecord = CancellationToken::where('token', $token)
+            ->where('is_used', false)
+            ->where('expires_at', '>', now())
+            ->first();
         
-        if (empty($email)) {
+        if (!$tokenRecord) {
             return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
         }
         
-        // Eliminamos el token usado para evitar reuso
+        $email = $tokenRecord->email;
+        
+        // Marcamos el token como usado
+        $tokenRecord->markAsUsed();
+        
+        // También eliminamos de la caché para consistencia
         Cache::forget('cancellation_token_' . $token);
         
         // Redirigimos al proceso de cancelación
@@ -458,6 +500,93 @@ class CancellationController extends Controller
     public function cancellation()
     {
         return view('cancellation.form');
+    }
+
+    /**
+     * Muestra la vista de administración de tokens de cancelación
+     */
+    public function adminTokens()
+    {
+        // Obtener todos los tokens activos de cancelación
+        $activeTokens = $this->getActiveCancellationTokens();
+        
+        return view('admin.cancellation-tokens', [
+            'activeTokens' => $activeTokens
+        ]);
+    }
+
+    /**
+     * Invalida un token de cancelación específico
+     */
+    public function invalidateToken(Request $request)
+    {
+        $token = $request->input('token');
+        
+        if (empty($token)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token no válido'
+            ], 400);
+        }
+        
+        try {
+            // Buscar y marcar el token como usado en la base de datos
+            $tokenRecord = CancellationToken::where('token', $token)->first();
+            
+            if ($tokenRecord) {
+                $tokenRecord->markAsUsed();
+            }
+            
+            // También eliminar de la caché para consistencia
+            Cache::forget('cancellation_token_' . $token);
+            
+            \Log::info('Token de cancelación invalidado por administrador', [
+                'token' => $token,
+                'admin' => auth()->user()->email ?? 'unknown'
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Token invalidado correctamente'
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error al invalidar token: ' . $e->getMessage(), [
+                'token' => $token,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al invalidar el token'
+            ], 500);
+        }
+    }
+
+    /**
+     * Obtiene todos los tokens activos de cancelación
+     */
+    private function getActiveCancellationTokens()
+    {
+        try {
+            // Obtener tokens activos desde la base de datos
+            $tokenRecords = CancellationToken::active()->orderBy('expires_at', 'asc')->get();
+            
+            $tokens = $tokenRecords->map(function ($tokenRecord) {
+                return [
+                    'token' => $tokenRecord->token,
+                    'email' => $tokenRecord->email,
+                    'expires_in_minutes' => $tokenRecord->remaining_minutes,
+                    'expires_at' => $tokenRecord->expires_at
+                ];
+            })->toArray();
+            
+            return $tokens;
+            
+        } catch (\Exception $e) {
+            \Log::error('Error al obtener tokens activos: ' . $e->getMessage());
+            return [];
+        }
     }
     
     /**

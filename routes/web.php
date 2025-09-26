@@ -57,8 +57,11 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     Route::get('cancellations/{customer_id}/{subscription_id}', [App\Http\Controllers\CancellationController::class, 'manualCancellation'])->name('cancellations.manual');
     Route::post('cancellations/stripe/cancel', [App\Http\Controllers\CancellationController::class, 'cancelSubscription'])->name('cancellations.cancel');
     Route::get('cancellations/send-verification', [App\Http\Controllers\CancellationController::class, 'sendCancellationVerification'])->name('cancellations.send-verification');
-    Route::get('cancellations/verify', [App\Http\Controllers\CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
     Route::get('cancellations/customer-ghl', [App\Http\Controllers\CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
+    
+    // Gestión administrativa de tokens de cancelación
+    Route::get('cancellation-tokens', [App\Http\Controllers\CancellationController::class, 'adminTokens'])->name('cancellation-tokens');
+    Route::post('cancellation-tokens/invalidate', [App\Http\Controllers\CancellationController::class, 'invalidateToken'])->name('cancellation-tokens.invalidate');
 
     //GoHighLevel
     Route::prefix('ghlevel')->name('ghlevel.')->group(function () {
@@ -131,6 +134,9 @@ Route::prefix('gohighlevel')->middleware(['web'])->group(function () {
     Route::post('cancellation/cancel', [CancellationController::class, 'publicCancelSubscription'])->name('cancellation.cancel');
     Route::get('cancellation/search', [CancellationController::class, 'cancellationCustomerGHL'])->where('email', '.*');
 });
+
+// Ruta adicional para acceso directo a verificación (sin prefijo gohighlevel)
+Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify.direct');
 
 // Ruta home después del login
 Route::get('/home', function () {

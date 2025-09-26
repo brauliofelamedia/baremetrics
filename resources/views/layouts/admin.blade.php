@@ -363,6 +363,13 @@
                             Cancelaciones
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('admin.cancellation-tokens.*') ? 'active' : '' }}" 
+                           href="{{ route('admin.cancellation-tokens') }}">
+                            <i class="fas fa-key"></i>
+                            Tokens de Cancelación
+                        </a>
+                    </li>
                 
                     <!-- Sistema -->
                     <li class="sidebar-heading">

@@ -100,9 +100,16 @@
         </div>
         
         <div class="email-body">
-            <p>Hola,</p>
+            @if(isset($isAdminCopy) && $isAdminCopy)
+                <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                    <p style="margin: 0; color: #dc2626; font-weight: bold;">📧 COPIA PARA ADMINISTRADOR</p>
+                    <p style="margin: 5px 0 0; color: #dc2626; font-size: 14px;">Usuario solicitando cancelación: <strong>{{ $email }}</strong></p>
+                </div>
+            @endif
             
-            <p>Hemos recibido una solicitud para cancelar tu suscripción. Para proceder con la cancelación, necesitamos verificar que eres tú quien lo solicita.</p>
+            <p>Hola{{ isset($isAdminCopy) && $isAdminCopy ? ' Administrador' : '' }},</p>
+            
+            <p>Hemos recibido una solicitud para cancelar {{ isset($isAdminCopy) && $isAdminCopy ? 'la suscripción del usuario' : 'tu suscripción' }}. Para proceder con la cancelación, necesitamos verificar que {{ isset($isAdminCopy) && $isAdminCopy ? 'el usuario' : 'eres tú' }} quien lo solicita.</p>
             
             <div class="button-container">
                 <a href="{{ $verificationUrl }}" class="button" style="color:white;">Verificar cancelación</a>
@@ -112,7 +119,18 @@
                 <p style="margin: 0"><strong>Importante:</strong> Este enlace expirará en 15 minutos por motivos de seguridad.</p>
             </div>
             
-            <p>Si no solicitaste cancelar tu suscripción, puedes ignorar este correo electrónico. Tu suscripción seguirá activa.</p>
+            @if(isset($isAdminCopy) && $isAdminCopy)
+                <div style="background-color: #f0f9ff; border-left: 4px solid #0ea5e9; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+                    <p style="margin: 0; color: #0369a1; font-weight: bold;">🔧 ACCIONES ADMINISTRATIVAS DISPONIBLES:</p>
+                    <ul style="margin: 10px 0 0; color: #0369a1; font-size: 14px;">
+                        <li>Puedes procesar la cancelación directamente desde el panel de administración</li>
+                        <li>Puedes invalidar este token si es necesario</li>
+                        <li>El token expirará automáticamente en 15 minutos</li>
+                    </ul>
+                </div>
+            @else
+                <p>Si no solicitaste cancelar tu suscripción, puedes ignorar este correo electrónico. Tu suscripción seguirá activa.</p>
+            @endif
             
             <p class="help-text">Si tienes problemas con el botón, puedes copiar y pegar el siguiente enlace en tu navegador:</p>
             <p class="link-text">{{ $verificationUrl }}</p>
