@@ -64,7 +64,8 @@ return [
         'client_secret' => env('GHL_CLIENT_SECRET'),
         'token' => env('GHL_TOKEN'),
         'location' => env('GHL_LOCATION'),
-        'company' => env('GHL_COMPANY')
+        'company' => env('GHL_COMPANY'),
+        'notification_email' => env('GHL_NOTIFICATION_EMAIL'),
     ]
 
 ];

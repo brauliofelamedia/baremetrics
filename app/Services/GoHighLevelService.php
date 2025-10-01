@@ -182,6 +182,93 @@ class GoHighLevelService
         return $this->config->ghl_token;
     }
 
+    /**
+     * Get contacts by exact email match
+     *
+     * @param string $email The exact email to search for
+     * @return array|null
+     */
+    public function getContactsByExactEmail($email)
+    {
+        $body = [
+            'pageLimit' => 20,
+            'locationId' => $this->location,
+            'filters' => [
+                [
+                    'field' => 'email',
+                    'operator' => 'eq',
+                    'value' => $email
+                ]
+            ]
+        ];
+
+        try {
+            // Asegurarnos de tener un token válido
+            $token = $this->ensureValidToken();
+            
+            $response = $this->client->request('POST', "{$this->base_url}/contacts/search", [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                    'Authorization' => "Bearer {$token}",
+                    'Version' => '2021-07-28',
+                ],
+                'json' => $body,
+            ]);
+
+            // Verificar que la respuesta sea exitosa
+            if ($response->getStatusCode() !== 200) {
+                throw new \Exception("Error en la API: " . $response->getStatusCode());
+            }
+
+            // Devolver el contenido decodificado
+            return json_decode($response->getBody()->getContents(), true);
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            // Si obtenemos un 401 Unauthorized, intentar refrescar el token y reintentar
+            if ($e->getResponse() && $e->getResponse()->getStatusCode() === 401) {
+                Log::warning('Token de GoHighLevel inválido, intentando renovar', [
+                    'error' => $e->getMessage()
+                ]);
+                
+                try {
+                    $token = $this->refreshToken();
+                    
+                    // Reintentar la solicitud con el nuevo token
+                    $response = $this->client->request('POST', "{$this->base_url}/contacts/search", [
+                        'headers' => [
+                            'Content-Type' => 'application/json',
+                            'Accept' => 'application/json',
+                            'Authorization' => "Bearer {$token}",
+                            'Version' => '2021-07-28',
+                        ],
+                        'json' => $body,
+                    ]);
+                    
+                    return json_decode($response->getBody()->getContents(), true);
+                } catch (\Exception $refreshError) {
+                    Log::error('Error al refrescar token y reintentar solicitud', [
+                        'error' => $refreshError->getMessage()
+                    ]);
+                    throw new \Exception("Error al refrescar el token de GoHighLevel: " . $refreshError->getMessage());
+                }
+            }
+            
+            // Para otros errores, relanzar la excepción
+            Log::error('Error al obtener contactos de GoHighLevel', [
+                'error' => $e->getMessage(),
+                'response' => $e->getResponse() ? $e->getResponse()->getBody()->getContents() : null
+            ]);
+            throw new \Exception("Error al obtener contactos: " . $e->getMessage());
+        } catch (\Exception $e) {
+            // Manejar otros tipos de errores
+            Log::error('Error al obtener contactos de GoHighLevel', [
+                'error' => $e->getMessage()
+            ]);
+            throw new \Exception("Error al obtener contactos: " . $e->getMessage());
+        }
+    }
+
     public function getContacts($email = null)
     {
         $body = [
@@ -334,8 +421,41 @@ class GoHighLevelService
             $res = $this->client->sendAsync($request)->wait();
             $data = json_decode($res->getBody(), true);
 
-            return $data['data'][0] ?? null;
-            //return $data['data'][0]['status'];
+            // Log para debugging
+            Log::debug('Respuesta completa de suscripciones', [
+                'contact_id' => $contactId,
+                'data' => $data
+            ]);
+
+            if (empty($data['data'])) {
+                Log::info('No se encontraron suscripciones para el contacto', [
+                    'contact_id' => $contactId
+                ]);
+                return null;
+            }
+
+            $subscriptions = $data['data'];
+            
+            // Ordenar suscripciones por fecha de creación (más reciente primero)
+            usort($subscriptions, function($a, $b) {
+                $dateA = isset($a['createdAt']) ? strtotime($a['createdAt']) : 0;
+                $dateB = isset($b['createdAt']) ? strtotime($b['createdAt']) : 0;
+                return $dateB - $dateA; // Orden descendente (más reciente primero)
+            });
+
+            // Obtener la suscripción más reciente (sin importar el estado)
+            $latestSubscription = $subscriptions[0];
+            
+            Log::info('Suscripción más reciente encontrada (por fecha)', [
+                'contact_id' => $contactId,
+                'subscription_id' => $latestSubscription['id'] ?? 'N/A',
+                'status' => $latestSubscription['status'] ?? 'N/A',
+                'coupon_code' => $latestSubscription['couponCode'] ?? 'N/A',
+                'created_at' => $latestSubscription['createdAt'] ?? 'N/A',
+                'total_subscriptions' => count($subscriptions)
+            ]);
+
+            return $latestSubscription;
 
         } catch (\Exception $e) {
             Log::error('Error al obtener datos de suscripción por ID de contacto', [
@@ -343,6 +463,72 @@ class GoHighLevelService
                 'error' => $e->getMessage()
             ]);
             throw new \Exception("Error al obtener datos de suscripción por ID de contacto: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get the most recent active subscription for a contact
+     *
+     * @param string $contactId The GHL contact ID
+     * @return array|null The most recent active subscription or null if none found
+     */
+    public function getMostRecentActiveSubscription(string $contactId)
+    {
+        // Asegurarnos de tener un token válido
+        $token = $this->ensureValidToken();
+
+        try {
+            $headers = [
+                'Accept' => 'application/json',
+                'Version' => '2021-07-28',
+                'Authorization' => "Bearer {$token}"
+            ];
+            
+            $request = new \GuzzleHttp\Psr7\Request(
+                'GET', 
+                "{$this->base_url}/payments/subscriptions?altId={$this->location}&altType=location&contactId={$contactId}", 
+                $headers
+            );
+            
+            $res = $this->client->sendAsync($request)->wait();
+            $data = json_decode($res->getBody(), true);
+
+            if (empty($data['data'])) {
+                Log::info('No se encontraron suscripciones para el contacto', [
+                    'contact_id' => $contactId
+                ]);
+                return null;
+            }
+
+            $subscriptions = $data['data'];
+            
+            // Ordenar suscripciones por fecha de creación (más reciente primero)
+            usort($subscriptions, function($a, $b) {
+                $dateA = isset($a['createdAt']) ? strtotime($a['createdAt']) : 0;
+                $dateB = isset($b['createdAt']) ? strtotime($b['createdAt']) : 0;
+                return $dateB - $dateA; // Orden descendente (más reciente primero)
+            });
+
+            // Obtener la suscripción más reciente (sin importar el estado)
+            $latestSubscription = $subscriptions[0];
+            
+            Log::info('Suscripción más reciente encontrada (método alternativo)', [
+                'contact_id' => $contactId,
+                'subscription_id' => $latestSubscription['id'] ?? 'N/A',
+                'status' => $latestSubscription['status'] ?? 'N/A',
+                'coupon_code' => $latestSubscription['couponCode'] ?? 'N/A',
+                'created_at' => $latestSubscription['createdAt'] ?? 'N/A',
+                'total_subscriptions' => count($subscriptions)
+            ]);
+
+            return $latestSubscription;
+
+        } catch (\Exception $e) {
+            Log::error('Error al obtener suscripción activa más reciente', [
+                'contact_id' => $contactId,
+                'error' => $e->getMessage()
+            ]);
+            throw new \Exception("Error al obtener suscripción activa más reciente: " . $e->getMessage());
         }
     }
 

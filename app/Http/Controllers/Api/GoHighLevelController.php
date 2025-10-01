@@ -24,63 +24,151 @@ class GoHighLevelController extends Controller
 
     public function updateCustomerFromGHL(Request $request)
     {
-
         try {
             $request->validate([
                 'email' => 'required|email',
             ]);
 
-            $ghl_customer = $this->ghlService->getContacts($request->email);
-            $stripeCustomer = $this->stripeService->searchCustomersByEmail($request->email);
+            $email = $request->email;
             
-            $stripe_id = $stripeCustomer['data'][0]['id'] ?? null;
-            
-            $subscription = $this->ghlService->getSubscriptionStatusByContact($ghl_customer['contacts'][0]['id'] ?? '');
+            Log::info('Iniciando actualización de cliente desde GHL via API', [
+                'email' => $email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
 
+            // Buscar usuario en GoHighLevel con búsqueda mejorada
+            $ghl_customer = $this->ghlService->getContactsByExactEmail($email);
+            
+            // Si no se encuentra con búsqueda exacta, intentar con contains
+            if (empty($ghl_customer['contacts'])) {
+                $ghl_customer = $this->ghlService->getContacts($email);
+            }
+
+            if (empty($ghl_customer['contacts'])) {
+                Log::warning('Contacto no encontrado en GoHighLevel', ['email' => $email]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró el contacto en GoHighLevel con el correo proporcionado',
+                    'email' => $email
+                ], 404);
+            }
+
+            $contact = $ghl_customer['contacts'][0];
+            $contactId = $contact['id'];
+
+            // Buscar cliente en Stripe
+            $stripeCustomer = $this->stripeService->searchCustomersByEmail($email);
+            
+            if (empty($stripeCustomer['data'])) {
+                Log::warning('Cliente no encontrado en Stripe', ['email' => $email]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se encontró el cliente en Stripe con el correo proporcionado',
+                    'email' => $email
+                ], 404);
+            }
+
+            $stripe_id = $stripeCustomer['data'][0]['id'];
+            
+            // Obtener datos de suscripción más reciente (mejorado)
+            $subscription = $this->ghlService->getSubscriptionStatusByContact($contactId);
             $couponCode = $subscription['couponCode'] ?? null;
             $subscription_status = $subscription['status'] ?? 'none';
 
-            if (!empty($ghl_customer['contacts']) && $stripeCustomer['data']) {
-                $customFields = collect($ghl_customer['contacts'][0]['customFields']);
-                $country = $ghl_customer['contacts'][0]['country'] ?? '-';
-                $city = $ghl_customer['contacts'][0]['city'] ?? '-';
-                $score = $customFields->firstWhere('id', 'j175N7HO84AnJycpUb9D');
-                $birthplace = $customFields->firstWhere('id', 'q3BHfdxzT2uKfNO3icXG');
-                $sign = $customFields->firstWhere('id', 'JuiCbkHWsSc3iKfmOBpo');
-                $hasKids = $customFields->firstWhere('id', 'xy0zfzMRFpOdXYJkHS2c');
-                $isMarried = $customFields->firstWhere('id', '1fFJJsONHbRMQJCstvg1');
+            // Obtener campos personalizados
+            $customFields = collect($contact['customFields'] ?? []);
+            
+            // Preparar datos para Baremetrics (mejorado)
+            $ghlData = [
+                'relationship_status' => $customFields->firstWhere('id', '1fFJJsONHbRMQJCstvg1')['value'] ?? '-',
+                'community_location' => $customFields->firstWhere('id', 'q3BHfdxzT2uKfNO3icXG')['value'] ?? '-',
+                'country' => $contact['country'] ?? '-',
+                'engagement_score' => $customFields->firstWhere('id', 'j175N7HO84AnJycpUb9D')['value'] ?? '-',
+                'has_kids' => $customFields->firstWhere('id', 'xy0zfzMRFpOdXYJkHS2c')['value'] ?? '-',
+                'state' => $contact['state'] ?? '-',
+                'location' => $contact['city'] ?? '-',
+                'zodiac_sign' => $customFields->firstWhere('id', 'JuiCbkHWsSc3iKfmOBpo')['value'] ?? '-',
+                'subscriptions' => $subscription_status,
+                'coupon_code' => $couponCode
+            ];
 
-                $ghlData = [
-                    'relationship_status' => $isMarried['value'] ?? '-',
-                    'community_location' => $birthplace['value'] ?? '-',
-                    'country' => $country ?? '-',
-                    'engagement_score' => $score['value'] ?? '-',
-                    'has_kids' => $hasKids['value'] ?? '-',
-                    'state' => $ghl_customer['contacts'][0]['state'] ?? '-',
-                    'location' => $city,
-                    'zodiac_sign' => $sign['value'] ?? '-',
-                    'subscriptions' => $subscription_status ?? 'none',
-                    'coupon_code' => $couponCode ?? null
-                ];
+            Log::debug('Datos preparados para Baremetrics', [
+                'email' => $email,
+                'contact_id' => $contactId,
+                'stripe_id' => $stripe_id,
+                'subscription_id' => $subscription['id'] ?? 'N/A',
+                'subscription_status' => $subscription_status,
+                'coupon_code' => $couponCode,
+                'ghl_data' => $ghlData
+            ]);
 
-                //return response()->json(['message' => 'GHL Data', 'ghl_customer' => $ghlData], 200);
+            // Actualizar en Baremetrics
+            $result = $this->baremetricsService->updateCustomerAttributes($stripe_id, $ghlData);
 
-                // Actualizar en Baremetrics
-                $result = $this->baremetricsService->updateCustomerAttributes($stripe_id, $ghlData);
+            if ($result) {
+                Log::info('Cliente actualizado con éxito desde GHL via API', [
+                    'email' => $email,
+                    'contact_id' => $contactId,
+                    'stripe_id' => $stripe_id,
+                    'subscription_status' => $subscription_status,
+                    'coupon_code' => $couponCode,
+                    'result' => $result
+                ]);
 
                 return response()->json([
+                    'success' => true,
                     'message' => 'Actualización exitosa',
-                    'result' => $result
+                    'data' => [
+                        'email' => $email,
+                        'contact_id' => $contactId,
+                        'stripe_id' => $stripe_id,
+                        'subscription_status' => $subscription_status,
+                        'coupon_code' => $couponCode,
+                        'subscription_id' => $subscription['id'] ?? null,
+                        'subscription_created_at' => $subscription['createdAt'] ?? null,
+                        'updated_fields' => array_keys(array_filter($ghlData, function($value) {
+                            return $value !== '-' && $value !== null && $value !== '';
+                        }))
+                    ],
+                    'baremetrics_result' => $result
                 ], 200);
-                
-                Log::info('Cliente actualizado con éxito desde GHL', ['result' => $result]);
-
             } else {
-                return response()->json(['message' => 'No se encontro el contacto en GHL con el correo'], 404);
+                Log::error('Error al actualizar en Baremetrics', [
+                    'email' => $email,
+                    'stripe_id' => $stripe_id,
+                    'ghl_data' => $ghlData
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al actualizar los datos en Baremetrics',
+                    'email' => $email
+                ], 500);
             }
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json(['error' => 'Invalid email format'], 400);
+            Log::error('Error de validación en API GHL', [
+                'errors' => $e->errors(),
+                'email' => $request->email ?? 'N/A'
+            ]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Formato de email inválido',
+                'details' => $e->errors()
+            ], 400);
+        } catch (\Exception $e) {
+            Log::error('Error general en API GHL', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'email' => $request->email ?? 'N/A'
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'Error interno del servidor',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
