@@ -62,8 +62,8 @@ return [
         'client_id' => env('GHL_CLIENT_ID'),
         'code' => env('GHL_CODE'),
         'client_secret' => env('GHL_CLIENT_SECRET'),
-        'token' => env('GHL_TOKEN'),
-        'location' => env('GHL_LOCATION'),
+        'access_token' => env('GHL_TOKEN'),
+        'location_id' => env('GHL_LOCATION_ID'),
         'company' => env('GHL_COMPANY'),
         'notification_email' => env('GHL_NOTIFICATION_EMAIL'),
     ]

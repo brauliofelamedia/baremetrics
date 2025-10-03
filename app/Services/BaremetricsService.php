@@ -183,19 +183,21 @@ class BaremetricsService
     /**
      * Create a new customer in Baremetrics for a specific source
      *
-     * @param array $customer Associative array with customer details (name, email, oid)
+     * @param array $customerData Associative array with customer details (name, email, company, notes, oid)
      * @param string $sourceId The source ID to create the customer under
      * @return array|null
      */
-    public function createCustomer($customer, $sourceId)
+    public function createCustomer(array $customerData, string $sourceId): ?array
     {
         try {
             $url = $this->baseUrl . '/' . $sourceId . '/customers';
 
             $body = [
-                'name' => $customer['name'] ?? null,
-                'email' => $customer['email'] ?? null,
-                'oid' => $customer['oid'] ?? null,
+                'name' => $customerData['name'] ?? null,
+                'email' => $customerData['email'] ?? null,
+                'company' => $customerData['company'] ?? null,
+                'notes' => $customerData['notes'] ?? null,
+                'oid' => $customerData['oid'] ?? 'cust_' . uniqid(),
             ];
 
             $response = Http::withHeaders([
@@ -205,6 +207,11 @@ class BaremetricsService
             ])->post($url, $body);
 
             if ($response->successful()) {
+                Log::info('Baremetrics Customer Created Successfully', [
+                    'source_id' => $sourceId,
+                    'customer_data' => $customerData,
+                    'response' => $response->json()
+                ]);
                 return $response->json();
             }
 
@@ -212,7 +219,7 @@ class BaremetricsService
                 'status' => $response->status(),
                 'response' => $response->body(),
                 'source_id' => $sourceId,
-                'customer' => $customer,
+                'customer_data' => $customerData,
             ]);
 
             return null;
@@ -220,6 +227,8 @@ class BaremetricsService
             Log::error('Baremetrics Service Exception - Create customer', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+                'source_id' => $sourceId,
+                'customer_data' => $customerData,
             ]);
 
             return null;
@@ -364,6 +373,91 @@ class BaremetricsService
                 'source_id' => $sourceId,
             ]);
 
+            return null;
+        }
+    }
+
+    /**
+     * Get customers by email from Baremetrics
+     *
+     * @param string $email
+     * @return array|null
+     */
+    public function getCustomersByEmail($email)
+    {
+        try {
+            $sources = $this->getSources();
+            
+            if (!$sources) {
+                return null;
+            }
+
+            // Normalizar respuesta de fuentes
+            $sourcesNew = [];
+            if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
+                $sourcesNew = $sources['sources'];
+            } elseif (is_array($sources)) {
+                $sourcesNew = $sources;
+            }
+
+            // Filtrar solo fuentes de Stripe
+            $stripeSources = array_values(array_filter($sourcesNew, function ($source) {
+                return isset($source['provider']) && $source['provider'] === 'stripe';
+            }));
+
+            $sourceIds = array_values(array_filter(array_column($stripeSources, 'id'), function ($id) {
+                return !empty($id);
+            }));
+
+            if (empty($sourceIds)) {
+                return null;
+            }
+
+            // Buscar en cada fuente
+            foreach ($sourceIds as $sourceId) {
+                $page = 1;
+                $hasMore = true;
+                
+                while ($hasMore) {
+                    $response = $this->getCustomers($sourceId, $page);
+                    
+                    if (!$response) {
+                        break;
+                    }
+
+                    $customers = [];
+                    if (is_array($response) && isset($response['customers']) && is_array($response['customers'])) {
+                        $customers = $response['customers'];
+                    } elseif (is_array($response)) {
+                        $customers = $response;
+                    }
+
+                    // Buscar por email
+                    foreach ($customers as $customer) {
+                        if (isset($customer['email']) && strtolower($customer['email']) === strtolower($email)) {
+                            return [$customer]; // Devolver array con el cliente encontrado
+                        }
+                    }
+
+                    if (isset($response['meta']['pagination'])) {
+                        $pagination = $response['meta']['pagination'];
+                        $hasMore = $pagination['has_more'] ?? false;
+                    } else {
+                        $hasMore = false;
+                    }
+
+                    $page++;
+                    usleep(100000); // Pequeña pausa entre requests
+                }
+            }
+            
+            return null; // No encontrado
+            
+        } catch (\Exception $e) {
+            Log::error('Error obteniendo cliente por email de Baremetrics', [
+                'email' => $email,
+                'error' => $e->getMessage()
+            ]);
             return null;
         }
     }
@@ -600,6 +694,217 @@ class BaremetricsService
             return null;
         } catch (\Exception $e) {
             Log::error('Baremetrics Service Exception - Custom Fields', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
+
+    /**
+     * Create a plan in Baremetrics
+     * 
+     * @param string $sourceId The source ID for the plan
+     * @param array $planData Plan data to create
+     * @return array|null
+     */
+    public function createPlan(array $planData, string $sourceId): ?array
+    {
+        try {
+            // Ensure plan has an OID
+            if (!isset($planData['oid'])) {
+                $planData['oid'] = 'plan_' . uniqid();
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->post($this->baseUrl . "/{$sourceId}/plans", $planData);
+
+            if ($response->successful()) {
+                Log::info('Baremetrics Plan Created Successfully', [
+                    'source_id' => $sourceId,
+                    'plan_data' => $planData,
+                    'response' => $response->json()
+                ]);
+                return $response->json();
+            }
+
+            Log::error('Baremetrics API Error - Create Plan', [
+                'source_id' => $sourceId,
+                'plan_data' => $planData,
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Baremetrics Service Exception - Create Plan', [
+                'source_id' => $sourceId,
+                'plan_data' => $planData,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Create a subscription in Baremetrics
+     * 
+     * @param string $sourceId The source ID for the subscription
+     * @param array $subscriptionData Subscription data to create
+     * @return array|null
+     */
+    public function createSubscription(array $subscriptionData, string $sourceId): ?array
+    {
+        try {
+            // Ensure subscription has an OID
+            if (!isset($subscriptionData['oid'])) {
+                $subscriptionData['oid'] = 'sub_' . uniqid();
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->post($this->baseUrl . "/{$sourceId}/subscriptions", $subscriptionData);
+
+            if ($response->successful()) {
+                Log::info('Baremetrics Subscription Created Successfully', [
+                    'source_id' => $sourceId,
+                    'subscription_data' => $subscriptionData,
+                    'response' => $response->json()
+                ]);
+                return $response->json();
+            }
+
+            Log::error('Baremetrics API Error - Create Subscription', [
+                'source_id' => $sourceId,
+                'subscription_data' => $subscriptionData,
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Baremetrics Service Exception - Create Subscription', [
+                'source_id' => $sourceId,
+                'subscription_data' => $subscriptionData,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Get source ID from Baremetrics
+     * This is required for creating customers, plans, and subscriptions
+     * 
+     * @return string|null
+     */
+    public function getSourceId(): ?string
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ])->get($this->baseUrl . '/sources');
+
+            if ($response->successful()) {
+                $sources = $response->json();
+                
+                // Return the first source ID if available
+                if (!empty($sources['sources']) && is_array($sources['sources'])) {
+                    return $sources['sources'][0]['id'] ?? null;
+                }
+            }
+
+            Log::error('Baremetrics API Error - Get Sources', [
+                'status' => $response->status(),
+                'response' => $response->body(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Baremetrics Service Exception - Get Sources', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Create a complete customer setup (customer + plan + subscription) in Baremetrics
+     * 
+     * @param array $customerData Customer data
+     * @param array $planData Plan data
+     * @param array $subscriptionData Subscription data
+     * @return array|null
+     */
+    public function createCompleteCustomerSetup(array $customerData, array $planData, array $subscriptionData): ?array
+    {
+        try {
+            // Get source ID
+            $sourceId = $this->getSourceId();
+            if (!$sourceId) {
+                Log::error('Baremetrics - No source ID available');
+                return null;
+            }
+
+            // Create customer
+            $customer = $this->createCustomer($customerData, $sourceId);
+            if (!$customer || !isset($customer['customer']['oid'])) {
+                Log::error('Baremetrics - Failed to create customer');
+                return null;
+            }
+
+            // Create plan
+            $plan = $this->createPlan($planData, $sourceId);
+            if (!$plan || !isset($plan['plan']['oid'])) {
+                Log::error('Baremetrics - Failed to create plan');
+                return null;
+            }
+
+            // Add customer and plan OIDs to subscription data
+            $subscriptionData['customer_oid'] = $customer['customer']['oid'];
+            $subscriptionData['plan_oid'] = $plan['plan']['oid'];
+
+            // Create subscription
+            $subscription = $this->createSubscription($subscriptionData, $sourceId);
+            if (!$subscription) {
+                Log::error('Baremetrics - Failed to create subscription');
+                return null;
+            }
+
+            Log::info('Baremetrics Complete Customer Setup Created Successfully', [
+                'source_id' => $sourceId,
+                'customer_oid' => $customer['customer']['oid'],
+                'plan_oid' => $plan['plan']['oid'],
+                'subscription' => $subscription
+            ]);
+
+            return [
+                'customer' => $customer,
+                'plan' => $plan,
+                'subscription' => $subscription,
+                'source_id' => $sourceId
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Baremetrics Service Exception - Complete Customer Setup', [
+                'customer_data' => $customerData,
+                'plan_data' => $planData,
+                'subscription_data' => $subscriptionData,
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

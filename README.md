@@ -59,3 +59,18 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Documentación del Proyecto
+
+### Sistema de Configuración
+- [Sistema de Configuración](SISTEMA_CONFIGURACION.md)
+- [Integración con Stripe](STRIPE_INTEGRATION.md)
+- [Procesamiento de GHL](GHL_PROCESSING_COMMAND.md)
+- [Implementación Completada](IMPLEMENTACION_COMPLETADA.md)
+
+### Importación GHL → Baremetrics
+- [Importación Completa GHL → Baremetrics](docs/GHL_BAREMETRICS_COMPLETE_IMPORT.md)
+- [Problema de Sincronización en Baremetrics](docs/BAREMETRICS_SYNC_ISSUE.md)
+- [API de Creación de Recursos Baremetrics](docs/BAREMETRICS_CREATE_API.md)
+- [Filtrado de Usuarios GHL](docs/GHL_FILTER_API.md)
+- [Ejemplos de Uso de APIs](docs/API_USAGE_EXAMPLES.md)

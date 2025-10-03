@@ -83,6 +83,16 @@ php artisan ghl:list-baremetrics-users --limit=20 --offset=0
 php artisan ghl:show-baremetrics-fields
 ```
 
+### 14. Procesar GHL hacia Baremetrics
+```bash
+php artisan ghl:process-ghl-to-baremetrics --delay=2 --batch-size=50
+```
+
+### 15. Analizar usuarios faltantes
+```bash
+php artisan ghl:analyze-missing-users --latest
+```
+
 ## Uso
 
 ### Comando básico
@@ -440,6 +450,295 @@ Este comando:
 - 📊 Agrupa campos por fuente (Custom Fields, Contact Fields, Subscription Data)
 - 🔍 Muestra IDs de campos en ambas plataformas
 - 💡 Proporciona información adicional sobre el proceso
+
+### Contar usuarios con filtros
+Para contar usuarios de GoHighLevel con filtros específicos antes de procesar:
+
+```bash
+# Contar usuarios activos con suscripción activa (filtros por defecto)
+php artisan ghl:count-users
+
+# Contar solo usuarios activos (sin filtro de suscripción)
+php artisan ghl:count-users --with-subscription=false
+
+# Contar todos los usuarios (sin filtros)
+php artisan ghl:count-users --no-filters
+
+# Contar con límite específico
+php artisan ghl:count-users --limit=5000
+```
+
+Este comando:
+- 🔍 Aplica filtros específicos a usuarios de GoHighLevel
+- 📊 Muestra estadísticas de filtrado
+- ⚡ Es más rápido que el procesamiento completo
+- 💡 Ayuda a estimar cuántos usuarios se procesarán
+- 🎯 Útil para planificar el procesamiento
+
+### Diagnosticar conexión básica
+Para diagnosticar problemas de conexión con GoHighLevel:
+
+```bash
+# Prueba básica de conexión
+php artisan ghl:test-basic-connection
+
+# Diagnóstico completo de conexión
+php artisan ghl:diagnose-connection --test-api --test-token --test-location
+```
+
+Estos comandos:
+- 🔧 Verifican configuración básica (variables de entorno)
+- 🔑 Prueban validez del token de acceso
+- 📍 Verifican configuración de ubicación
+- 🌐 Prueban conexión a la API
+- 👥 Verifican obtención de contactos
+
+### Probar total de usuarios sin filtros
+Para verificar el total de usuarios disponibles en GoHighLevel:
+
+```bash
+# Probar obtención de usuarios sin filtros
+php artisan ghl:test-total-users --limit=1000
+
+# Con método optimizado
+php artisan ghl:test-total-users --limit=5000 --method=optimized
+
+# Mostrar muestra de usuarios encontrados
+php artisan ghl:test-total-users --limit=1000 --show-sample
+```
+
+Este comando:
+- 📊 Obtiene usuarios sin filtros para verificar el total
+- 🔍 Analiza estructura de tags en todos los usuarios
+- 📈 Muestra velocidad de procesamiento
+- 🏷️ Lista tags más comunes encontrados
+- 🎯 Cuenta específicamente los tags objetivo
+
+### Comparar conteos total vs filtrado
+Para comparar el conteo total con el filtrado por tags:
+
+```bash
+# Comparar conteos con límite pequeño
+php artisan ghl:compare-users-count --limit=1000
+
+# Con método optimizado
+php artisan ghl:compare-users-count --limit=5000 --method=optimized
+
+# Con tags personalizados
+php artisan ghl:compare-users-count --tags=creetelo_anual,creetelo_mensual --limit=1000
+```
+
+Este comando:
+- 🔄 Compara conteo total vs filtrado por tags
+- 📊 Muestra ratios y porcentajes de filtrado
+- ⚡ Compara velocidades de procesamiento
+- 🔍 Verifica consistencia entre métodos
+- 💡 Proporciona recomendaciones basadas en resultados
+
+### Diagnosticar problemas con tags
+Para diagnosticar problemas con la búsqueda de tags:
+
+```bash
+# Diagnosticar estructura de tags
+php artisan ghl:diagnose-tags --limit=500
+
+# Mostrar todos los tags encontrados
+php artisan ghl:diagnose-tags --limit=1000 --show-tags
+
+# Diagnosticar con límite pequeño para prueba rápida
+php artisan ghl:diagnose-tags --limit=100
+```
+
+Este comando:
+- 🔍 Analiza la estructura de tags en GoHighLevel
+- 📊 Muestra estadísticas de contactos con/sin tags
+- 🎯 Cuenta específicamente los tags objetivo
+- 🏷️ Lista todos los tags encontrados (opcional)
+- 🔍 Identifica posibles problemas en la búsqueda
+
+### Probar búsqueda por tags con API directa
+Para probar la búsqueda usando el método API directo:
+
+```bash
+# Probar método API directo
+php artisan ghl:test-tags-api --limit=100
+
+# Probar con tags personalizados
+php artisan ghl:test-tags-api --tags=creetelo_anual,creetelo_mensual --limit=50
+```
+
+Este comando:
+- 🧪 Prueba el método API directo de GoHighLevel
+- 📊 Compara resultados con el método alternativo
+- 🔍 Identifica errores específicos de la API
+- 📋 Muestra ejemplos de contactos encontrados
+- 🏷️ Analiza distribución de tags encontrados
+
+### Probar búsqueda por tags
+Para probar la búsqueda de usuarios por tags antes de procesar:
+
+```bash
+# Probar búsqueda con método alternativo (recomendado)
+php artisan ghl:test-tags-search
+
+# Probar con límite específico
+php artisan ghl:test-tags-search --limit=100
+
+# Probar con tags personalizados
+php artisan ghl:test-tags-search --tags=creetelo_anual,creetelo_mensual,otro_tag
+
+# Probar método API directo
+php artisan ghl:test-tags-search --method=api --limit=50
+```
+
+Este comando:
+- 🧪 Prueba la búsqueda por tags sin procesar usuarios
+- 📊 Muestra estadísticas de tags encontrados
+- 🔍 Compara métodos de búsqueda (API vs alternativo)
+- 📋 Lista ejemplos de usuarios encontrados
+- 🏷️ Analiza distribución de tags
+
+### Probar búsqueda por tags
+Para probar la búsqueda de usuarios por tags antes de procesar:
+
+```bash
+# Probar búsqueda con método alternativo (recomendado)
+php artisan ghl:test-tags-search
+
+# Probar con límite específico
+php artisan ghl:test-tags-search --limit=100
+
+# Probar con tags personalizados
+php artisan ghl:test-tags-search --tags=creetelo_anual,creetelo_mensual,créetelo_anual,créetelo_mensual
+
+# Probar método API directo
+php artisan ghl:test-tags-search --method=api --limit=50
+```
+
+Este comando:
+- 🧪 Prueba la búsqueda por tags sin procesar usuarios
+- 📊 Muestra estadísticas de tags encontrados
+- 🔍 Compara métodos de búsqueda (API vs alternativo)
+- 📋 Lista ejemplos de usuarios encontrados
+- 🏷️ Analiza distribución de tags
+
+### Procesar usuarios por tags (Grandes Volúmenes)
+Para procesar usuarios de GoHighLevel con más de 100,000 usuarios:
+
+```bash
+# Procesar usuarios con tags (optimizado para grandes volúmenes)
+php artisan ghl:process-by-tags-large
+
+# Solo contar usuarios (método optimizado)
+php artisan ghl:process-by-tags-large --count-only
+
+# Con configuración optimizada
+php artisan ghl:process-by-tags-large --delay=1 --batch-size=100 --batch-delay=5
+
+# Con límite para prueba
+php artisan ghl:process-by-tags-large --limit=1000 --count-only
+```
+
+Este comando:
+- 🚀 Optimizado para 100,000+ usuarios
+- ⚡ Usa pageLimit de 1000 para máximo rendimiento
+- 📊 Progreso cada 1000 usuarios procesados
+- 🔍 Filtrado optimizado con array_intersect
+- ⏱️ Delays optimizados para grandes volúmenes
+- 📈 Muestra velocidad y tiempo estimado
+
+### Procesar usuarios por tags específicos
+Para procesar usuarios de GoHighLevel filtrados por tags específicos (creetelo_anual, creetelo_mensual, créetelo_anual, créetelo_mensual):
+
+```bash
+# Procesar usuarios con tags creetelo_anual, creetelo_mensual, créetelo_anual, créetelo_mensual
+php artisan ghl:process-by-tags
+
+# Solo contar usuarios con tags (sin procesar)
+php artisan ghl:process-by-tags --count-only
+
+# Procesar con tags personalizados
+php artisan ghl:process-by-tags --tags=creetelo_anual,creetelo_mensual,créetelo_anual,créetelo_mensual,otro_tag
+
+# Con límite de usuarios
+php artisan ghl:process-by-tags --limit=100 --delay=2
+
+# Modo dry-run para probar
+php artisan ghl:process-by-tags --dry-run --delay=1 --batch-size=10
+
+# Con notificaciones por email
+php artisan ghl:process-by-tags --email=admin@ejemplo.com --delay=2
+```
+
+Este comando:
+- 🏷️ Filtra usuarios por tags específicos (creetelo_anual, creetelo_mensual, créetelo_anual, créetelo_mensual)
+- 🔄 Itera usuarios de GoHighLevel con los tags especificados
+- 🔍 Los busca en Baremetrics por email
+- ✅ Actualiza campos custom si existen en Baremetrics
+- 📋 Genera lista de usuarios faltantes en Baremetrics con información completa
+- 📊 Proporciona estadísticas detalladas
+- 🚫 Maneja rate limiting y errores de servidor
+- 🎫 Incluye información de membresía y suscripciones
+- 🎟️ Registra cupones utilizados por los usuarios
+- 📊 Modo conteo rápido disponible
+
+### Procesar GHL hacia Baremetrics
+Para procesar usuarios de GoHighLevel y actualizarlos en Baremetrics:
+
+```bash
+# Procesamiento básico (usuarios activos con suscripción activa)
+php artisan ghl:process-ghl-to-baremetrics --delay=2 --batch-size=50
+
+# Solo usuarios activos (sin filtro de suscripción)
+php artisan ghl:process-ghl-to-baremetrics --with-subscription=false --delay=2
+
+# Todos los usuarios (sin filtros)
+php artisan ghl:process-ghl-to-baremetrics --no-filters --delay=2
+
+# Con límite de usuarios
+php artisan ghl:process-ghl-to-baremetrics --limit=100 --delay=2 --batch-size=25
+
+# Modo dry-run para probar
+php artisan ghl:process-ghl-to-baremetrics --dry-run --delay=1 --batch-size=10
+
+# Con notificaciones por email
+php artisan ghl:process-ghl-to-baremetrics --email=admin@ejemplo.com --delay=2
+```
+
+Este comando:
+- 🔄 Itera usuarios de GoHighLevel
+- 🔍 Los busca en Baremetrics por email
+- ✅ Actualiza campos custom si existen en Baremetrics
+- 📋 Genera lista de usuarios faltantes en Baremetrics con información completa
+- 📊 Proporciona estadísticas detalladas
+- 🚫 Maneja rate limiting y errores de servidor
+- 🎫 Incluye información de membresía y suscripciones
+- 🎟️ Registra cupones utilizados por los usuarios
+
+### Analizar usuarios faltantes
+Para analizar el reporte de usuarios que existen en GHL pero no en Baremetrics:
+
+```bash
+# Analizar el reporte más reciente
+php artisan ghl:analyze-missing-users --latest
+
+# Analizar archivo específico
+php artisan ghl:analyze-missing-users --file=ghl-missing-users-2024-01-15-14-30-00.json
+
+# Ver archivos disponibles
+php artisan ghl:analyze-missing-users
+```
+
+Este comando:
+- 📊 Analiza estadísticas de usuarios faltantes
+- 📧 Muestra análisis de dominios de email
+- 📅 Agrupa usuarios por fechas de creación
+- 👥 Muestra ejemplos de usuarios faltantes
+- 💡 Proporciona recomendaciones para implementación
+- 🛠️ Sugiere próximos pasos
+- 🎫 Analiza información de membresías
+- 💳 Analiza estados de suscripciones
+- 🎟️ Analiza cupones utilizados por los usuarios
 
 ## Solución de problemas
 

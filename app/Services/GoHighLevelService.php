@@ -24,7 +24,7 @@ class GoHighLevelService
         $this->config = Configuration::first();
         $this->apiKey = config('services.gohighlevel.client_id');
         $this->base_url = 'https://services.leadconnectorhq.com';
-        $this->location = config('services.gohighlevel.location');
+        $this->location = config('services.gohighlevel.location_id');
         $this->client = new Client();
     }
 
@@ -269,11 +269,12 @@ class GoHighLevelService
         }
     }
 
-    public function getContacts($email = null)
+    public function getContacts($email = null, $page = 1, $pageLimit = 100)
     {
         $body = [
-            'pageLimit' => 20,
+            'pageLimit' => $pageLimit,
             'locationId' => $this->location,
+            'page' => $page
         ];
 
         if ($email) {
@@ -350,6 +351,192 @@ class GoHighLevelService
                 'error' => $e->getMessage()
             ]);
             throw new \Exception("Error al obtener contactos: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get contacts by tags
+     *
+     * @param array $tags Array of tags to filter by
+     * @param int $page Page number for pagination
+     * @return array|null
+     */
+    public function getContactsByTags($tags = [], $page = 1)
+    {
+        $body = [
+            'pageLimit' => 20,
+            'locationId' => $this->location,
+            'page' => $page
+        ];
+
+        if (!empty($tags)) {
+            // Según la documentación de GoHighLevel, para tags necesitamos usar un enfoque diferente
+            // Los tags se pueden filtrar usando el campo 'tags' con operador 'contains'
+            $body['filters'] = [];
+            
+            // Para múltiples tags, necesitamos crear filtros separados con OR lógico
+            foreach ($tags as $tag) {
+                $body['filters'][] = [
+                    'field' => 'tags',
+                    'operator' => 'contains',
+                    'value' => $tag
+                ];
+            }
+        }
+
+        try {
+            // Asegurarnos de tener un token válido
+            $token = $this->ensureValidToken();
+            
+            $response = $this->client->request('POST', "{$this->base_url}/contacts/search", [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                    'Authorization' => "Bearer {$token}",
+                    'Version' => '2021-07-28',
+                ],
+                'json' => $body,
+            ]);
+
+            // Verificar que la respuesta sea exitosa
+            if ($response->getStatusCode() !== 200) {
+                throw new \Exception("Error en la API: " . $response->getStatusCode());
+            }
+
+            // Devolver el contenido decodificado
+            return json_decode($response->getBody()->getContents(), true);
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $responseBody = $e->getResponse()->getBody()->getContents();
+            $errorData = json_decode($responseBody, true);
+            
+            Log::error('Error de cliente al obtener contactos por tags de GoHighLevel', [
+                'status_code' => $e->getResponse()->getStatusCode(),
+                'response_body' => $errorData,
+                'tags' => $tags
+            ]);
+            
+            throw new \Exception("Error al obtener contactos por tags: " . $e->getMessage());
+        } catch (\Exception $e) {
+            // Manejar otros tipos de errores
+            Log::error('Error al obtener contactos por tags de GoHighLevel', [
+                'error' => $e->getMessage(),
+                'tags' => $tags
+            ]);
+            throw new \Exception("Error al obtener contactos por tags: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get contacts by tags (optimized for large volumes)
+     * This method gets all contacts and filters by tags locally with optimizations
+     *
+     * @param array $tags Array of tags to filter by
+     * @param int $limit Limit of contacts to process
+     * @return array|null
+     */
+    public function getContactsByTagsOptimized($tags = [], $limit = null)
+    {
+        try {
+            $allContacts = [];
+            $page = 1;
+            $hasMore = true;
+            $processedCount = 0;
+            $foundCount = 0;
+
+            Log::info('Buscando contactos por tags usando método optimizado', [
+                'tags' => $tags,
+                'limit' => $limit,
+                'estimated_total' => '100000+'
+            ]);
+
+            // Optimización: usar pageLimit más grande para reducir requests
+            $pageLimit = 20; // Máximo permitido por la API para búsquedas con filtros
+
+            while ($hasMore) {
+                $response = $this->getContacts('', $page, $pageLimit);
+                
+                if (!$response || empty($response['contacts'])) {
+                    break;
+                }
+
+                $contacts = $response['contacts'];
+                $processedCount += count($contacts);
+
+                // Optimización: filtrar en batch para mejor rendimiento
+                $batchSize = 100;
+                $contactBatches = array_chunk($contacts, $batchSize);
+                
+                foreach ($contactBatches as $batch) {
+                    foreach ($batch as $contact) {
+                        $contactTags = $contact['tags'] ?? [];
+                        
+                        // Optimización: verificar tags de forma más eficiente
+                        $hasMatchingTag = !empty(array_intersect($tags, $contactTags));
+                        
+                        if ($hasMatchingTag) {
+                            $allContacts[] = $contact;
+                            $foundCount++;
+                            
+                            // Si se especifica límite y ya tenemos suficientes contactos filtrados, salir
+                            if ($limit && $foundCount >= $limit) {
+                                Log::info('Límite alcanzado en búsqueda optimizada', [
+                                    'found' => $foundCount,
+                                    'processed' => $processedCount
+                                ]);
+                                break 3; // Salir de todos los loops
+                            }
+                        }
+                    }
+                }
+
+                // Verificar paginación
+                if (isset($response['meta']['pagination'])) {
+                    $pagination = $response['meta']['pagination'];
+                    $hasMore = $pagination['has_more'] ?? false;
+                } else {
+                    $hasMore = false;
+                }
+
+                $page++;
+
+                // Mostrar progreso cada 1000 usuarios procesados
+                if ($processedCount % 1000 === 0) {
+                    Log::info('Progreso en búsqueda optimizada por tags', [
+                        'processed' => $processedCount,
+                        'found' => $foundCount,
+                        'tags' => $tags,
+                        'percentage' => round(($foundCount / $processedCount) * 100, 2) . '%'
+                    ]);
+                }
+
+                // Pausa más pequeña para mejor rendimiento
+                usleep(50000); // 0.05 segundos
+            }
+
+            Log::info('Búsqueda optimizada por tags completada', [
+                'tags' => $tags,
+                'total_processed' => $processedCount,
+                'contacts_found' => $foundCount,
+                'efficiency' => round(($foundCount / $processedCount) * 100, 2) . '%'
+            ]);
+
+            return [
+                'contacts' => $allContacts,
+                'meta' => [
+                    'total_processed' => $processedCount,
+                    'contacts_found' => $foundCount,
+                    'tags_searched' => $tags,
+                    'efficiency_percentage' => round(($foundCount / $processedCount) * 100, 2)
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error en método optimizado de búsqueda por tags', [
+                'error' => $e->getMessage(),
+                'tags' => $tags
+            ]);
+            throw $e;
         }
     }
 
