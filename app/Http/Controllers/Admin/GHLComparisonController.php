@@ -567,4 +567,326 @@ class GHLComparisonController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    /**
+     * Eliminar usuarios importados de Baremetrics y cambiar su estado a pending
+     */
+    public function deleteImportedUsers(Request $request, ComparisonRecord $comparison)
+    {
+        try {
+            Log::info('=== INICIANDO ELIMINACIÓN MASIVA DE USUARIOS IMPORTADOS ===', [
+                'comparison_id' => $comparison->id,
+                'comparison_name' => $comparison->name,
+                'user_ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+
+            // Configurar Baremetrics para producción
+            config(['services.baremetrics.environment' => 'production']);
+            $this->baremetricsService->reinitializeConfiguration();
+
+            // Obtener el source ID correcto para GHL
+            $sourceId = $this->baremetricsService->getGHLSourceId();
+            
+            if (!$sourceId) {
+                Log::error('No se pudo obtener source ID de GHL');
+                return redirect()->back()->with('error', 'No se pudo obtener el source ID de GHL de Baremetrics.');
+            }
+
+            Log::info('Configuración de Baremetrics', [
+                'environment' => config('services.baremetrics.environment'),
+                'source_id' => $sourceId,
+                'base_url' => config('services.baremetrics.production_url')
+            ]);
+
+            // Obtener usuarios importados de esta comparación
+            $importedUsers = $comparison->missingUsers()
+                ->where('import_status', 'imported')
+                ->get();
+
+            Log::info('Usuarios importados encontrados', [
+                'total_count' => $importedUsers->count(),
+                'user_emails' => $importedUsers->pluck('email')->toArray(),
+                'customer_ids' => $importedUsers->pluck('baremetrics_customer_id')->toArray()
+            ]);
+
+            if ($importedUsers->isEmpty()) {
+                Log::warning('No hay usuarios importados para eliminar');
+                return redirect()->back()->with('error', 'No hay usuarios importados para eliminar.');
+            }
+
+            $deletedCount = 0;
+            $failedCount = 0;
+            $errors = [];
+            $processedUsers = [];
+
+            Log::info('Iniciando procesamiento de usuarios', [
+                'total_users' => $importedUsers->count()
+            ]);
+
+            foreach ($importedUsers as $index => $user) {
+                $userIndex = $index + 1;
+                Log::info("Procesando usuario #{$userIndex}/{$importedUsers->count()}", [
+                    'user_email' => $user->email,
+                    'customer_id' => $user->baremetrics_customer_id,
+                    'user_id' => $user->id
+                ]);
+
+                try {
+                    $customerId = $user->baremetrics_customer_id;
+                    
+                    // Si el usuario no tiene customer_id, solo cambiar estado a pending
+                    if (!$customerId) {
+                        Log::info("Usuario {$user->email} no tiene customer_id, solo cambiando estado a pending");
+                        
+                        $updateResult = $user->update([
+                            'import_status' => 'pending',
+                            'baremetrics_customer_id' => null,
+                            'imported_at' => null,
+                            'import_error' => null
+                        ]);
+                        
+                        Log::info("Estado actualizado para usuario sin customer_id", [
+                            'user_email' => $user->email,
+                            'update_success' => $updateResult
+                        ]);
+                        
+                        $deletedCount++;
+                        $processedUsers[] = [
+                            'email' => $user->email,
+                            'customer_id' => null,
+                            'subscriptions_deleted' => 0,
+                            'status' => 'no_customer_id_cleaned'
+                        ];
+                        
+                        Log::info("Pausa de 200ms antes del siguiente usuario");
+                        usleep(200000); // 200ms
+                        continue;
+                    }
+                    
+                    // 1. Obtener suscripciones del usuario
+                    Log::info("Obteniendo suscripciones para usuario {$user->email}", [
+                        'customer_id' => $customerId
+                    ]);
+                    
+                    $subscriptions = $this->baremetricsService->getSubscriptions($sourceId);
+                    $userSubscriptions = [];
+                    
+                    if ($subscriptions && isset($subscriptions['subscriptions'])) {
+                        Log::info("Suscripciones obtenidas de Baremetrics", [
+                            'total_subscriptions' => count($subscriptions['subscriptions'])
+                        ]);
+                        
+                        foreach ($subscriptions['subscriptions'] as $subscription) {
+                            $subscriptionCustomerOid = $subscription['customer_oid'] ?? 
+                                                     $subscription['customer']['oid'] ?? 
+                                                     $subscription['customerOid'] ?? 
+                                                     null;
+                            
+                            if ($subscriptionCustomerOid === $customerId) {
+                                $userSubscriptions[] = $subscription;
+                            }
+                        }
+                        
+                        Log::info("Suscripciones encontradas para usuario {$user->email}", [
+                            'subscriptions_count' => count($userSubscriptions),
+                            'subscription_ids' => array_column($userSubscriptions, 'oid')
+                        ]);
+                    } else {
+                        Log::warning("No se pudieron obtener suscripciones de Baremetrics", [
+                            'response' => $subscriptions
+                        ]);
+                    }
+
+                    // 2. Eliminar suscripciones
+                    Log::info("Eliminando suscripciones para usuario {$user->email}", [
+                        'subscriptions_to_delete' => count($userSubscriptions)
+                    ]);
+                    
+                    foreach ($userSubscriptions as $subscription) {
+                        $subscriptionOid = $subscription['oid'];
+                        Log::info("Eliminando suscripción {$subscriptionOid}");
+                        
+                        $deleteResult = $this->baremetricsService->deleteSubscription(
+                            $sourceId, 
+                            $subscriptionOid
+                        );
+                        
+                        if ($deleteResult) {
+                            Log::info("Suscripción {$subscriptionOid} eliminada exitosamente");
+                        } else {
+                            Log::warning('Error eliminando suscripción', [
+                                'subscription_id' => $subscriptionOid,
+                                'customer_id' => $customerId,
+                                'user_email' => $user->email
+                            ]);
+                        }
+                    }
+
+                    // 3. Eliminar customer
+                    Log::info("Eliminando customer {$customerId} para usuario {$user->email}");
+                    
+                    $deleteCustomerResult = $this->baremetricsService->deleteCustomer(
+                        $sourceId, 
+                        $customerId
+                    );
+
+                    Log::info("Resultado de eliminación de customer", [
+                        'customer_id' => $customerId,
+                        'success' => $deleteCustomerResult,
+                        'user_email' => $user->email
+                    ]);
+
+                    // Verificar si el customer ya no existe en Baremetrics (404)
+                    $customerNotFound = false;
+                    if (!$deleteCustomerResult) {
+                        // Verificar si el error es porque el customer no existe
+                        $customerNotFound = true; // Asumimos que si falla la eliminación, es porque no existe
+                        Log::info("Customer no encontrado en Baremetrics, marcando como eliminado", [
+                            'customer_id' => $customerId,
+                            'user_email' => $user->email
+                        ]);
+                    }
+
+                    if ($deleteCustomerResult || $customerNotFound) {
+                        // 4. Cambiar estado a pending y limpiar datos de Baremetrics
+                        Log::info("Actualizando estado del usuario {$user->email} a pending");
+                        
+                        $updateResult = $user->update([
+                            'import_status' => 'pending',
+                            'baremetrics_customer_id' => null,
+                            'imported_at' => null,
+                            'import_error' => null
+                        ]);
+                        
+                        Log::info("Resultado de actualización de usuario", [
+                            'user_email' => $user->email,
+                            'update_success' => $updateResult
+                        ]);
+                        
+                        $deletedCount++;
+                        $processedUsers[] = [
+                            'email' => $user->email,
+                            'customer_id' => $customerId,
+                            'subscriptions_deleted' => count($userSubscriptions),
+                            'status' => $customerNotFound ? 'not_found_but_cleaned' : 'success'
+                        ];
+                        
+                        Log::info('Usuario eliminado exitosamente', [
+                            'user_email' => $user->email,
+                            'customer_id' => $customerId,
+                            'subscriptions_deleted' => count($userSubscriptions)
+                        ]);
+                    } else {
+                        $failedCount++;
+                        $errorMsg = "Error eliminando usuario {$user->email} (ID: {$customerId})";
+                        $errors[] = $errorMsg;
+                        
+                        $processedUsers[] = [
+                            'email' => $user->email,
+                            'customer_id' => $customerId,
+                            'status' => 'failed',
+                            'error' => $errorMsg
+                        ];
+                        
+                        Log::error('Error eliminando usuario de Baremetrics', [
+                            'user_email' => $user->email,
+                            'customer_id' => $customerId
+                        ]);
+                    }
+
+                    // Pausa pequeña entre eliminaciones para evitar sobrecargar la API
+                    Log::info("Pausa de 200ms antes del siguiente usuario");
+                    usleep(200000); // 200ms
+
+                } catch (\Exception $e) {
+                    $failedCount++;
+                    $errorMsg = "Error procesando usuario {$user->email}: " . $e->getMessage();
+                    $errors[] = $errorMsg;
+                    
+                    $processedUsers[] = [
+                        'email' => $user->email,
+                        'customer_id' => $user->baremetrics_customer_id,
+                        'status' => 'exception',
+                        'error' => $errorMsg
+                    ];
+                    
+                    Log::error('Excepción durante eliminación de usuario', [
+                        'user_email' => $user->email,
+                        'customer_id' => $user->baremetrics_customer_id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                }
+            }
+
+            // Preparar mensaje de resultado
+            $successCount = 0;
+            $notFoundCount = 0;
+            $noCustomerIdCount = 0;
+            
+            foreach ($processedUsers as $user) {
+                if ($user['status'] === 'success') {
+                    $successCount++;
+                } elseif ($user['status'] === 'not_found_but_cleaned') {
+                    $notFoundCount++;
+                } elseif ($user['status'] === 'no_customer_id_cleaned') {
+                    $noCustomerIdCount++;
+                }
+            }
+            
+            $message = "Procesamiento completado: ";
+            $parts = [];
+            
+            if ($successCount > 0) {
+                $parts[] = "{$successCount} usuarios eliminados de Baremetrics";
+            }
+            if ($notFoundCount > 0) {
+                $parts[] = "{$notFoundCount} usuarios ya no existían en Baremetrics (estado limpiado)";
+            }
+            if ($noCustomerIdCount > 0) {
+                $parts[] = "{$noCustomerIdCount} usuarios sin customer_id (estado limpiado)";
+            }
+            if ($failedCount > 0) {
+                $parts[] = "{$failedCount} usuarios fallaron";
+                
+                if (count($errors) > 0) {
+                    $errorMsg = ". Errores: " . implode('; ', array_slice($errors, 0, 3));
+                    if (count($errors) > 3) {
+                        $errorMsg .= " y " . (count($errors) - 3) . " más...";
+                    }
+                    $parts[count($parts) - 1] .= $errorMsg;
+                }
+            }
+            
+            $message .= implode(', ', $parts);
+
+            Log::info('=== ELIMINACIÓN MASIVA COMPLETADA ===', [
+                'comparison_id' => $comparison->id,
+                'deleted_count' => $deletedCount,
+                'failed_count' => $failedCount,
+                'total_processed' => $importedUsers->count(),
+                'processed_users' => $processedUsers,
+                'errors' => $errors
+            ]);
+
+            return redirect()->back()->with(
+                $failedCount > 0 ? 'warning' : 'success', 
+                $message
+            );
+
+        } catch (\Exception $e) {
+            Log::error('=== ERROR CRÍTICO DURANTE ELIMINACIÓN MASIVA ===', [
+                'comparison_id' => $comparison->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+
+            return redirect()->back()->with('error', 
+                'Error crítico durante la eliminación: ' . $e->getMessage()
+            );
+        }
+    }
 }

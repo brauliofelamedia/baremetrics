@@ -137,6 +137,7 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::post('/{comparison}/import-all-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importAllUsers'])->name('import-all-users');
         Route::post('/missing-users/{user}/retry-import', [App\Http\Controllers\Admin\GHLComparisonController::class, 'retryImport'])->name('retry-import');
         Route::post('/missing-users/{user}/import-with-plan', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importUserWithPlan'])->name('import-with-plan');
+        Route::post('/{comparison}/delete-imported-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'deleteImportedUsers'])->name('delete-imported-users');
         Route::get('/{comparison}/download-missing-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'downloadMissingUsers'])->name('download-missing-users');
         Route::delete('/{comparison}', [App\Http\Controllers\Admin\GHLComparisonController::class, 'destroy'])->name('destroy');
     });

@@ -253,6 +253,11 @@ class BaremetricsService
                 'oid' => $customerData['oid'] ?? 'cust_' . uniqid(),
             ];
 
+            // Agregar campos personalizados si existen
+            if (isset($customerData['properties']) && is_array($customerData['properties'])) {
+                $body['properties'] = $customerData['properties'];
+            }
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Accept' => 'application/json',
@@ -1232,6 +1237,59 @@ class BaremetricsService
             ]);
 
             return null;
+        }
+    }
+
+    /**
+     * Get GHL source ID from Baremetrics
+     * 
+     * @return string|null
+     */
+    public function getGHLSourceId(): ?string
+    {
+        try {
+            $sources = $this->getSources();
+            
+            if (!$sources) {
+                Log::error('No se pudieron obtener sources de Baremetrics');
+                return null;
+            }
+
+            $sourcesList = [];
+            if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
+                $sourcesList = $sources['sources'];
+            } elseif (is_array($sources)) {
+                $sourcesList = $sources;
+            }
+
+            // Buscar source que sea de Baremetrics (no Stripe) para GHL
+            foreach ($sourcesList as $source) {
+                $provider = $source['provider'] ?? '';
+                $sourceId = $source['id'] ?? '';
+                
+                // El source de GHL es el que tiene provider "baremetrics"
+                if ($provider === 'baremetrics') {
+                    Log::info('Source ID de GHL encontrado', [
+                        'source_id' => $sourceId,
+                        'provider' => $provider
+                    ]);
+                    
+                    return $sourceId;
+                }
+            }
+
+            // Si no encuentra uno específico de GHL, usar el por defecto
+            Log::warning('No se encontró source específico de GHL, usando source por defecto');
+            return 'd9d9a82f-5df7-4b1f-9cb0-6fdf7ab2c8a8';
+
+        } catch (\Exception $e) {
+            Log::error('Error obteniendo source ID de GHL', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Fallback al source por defecto
+            return 'd9d9a82f-5df7-4b1f-9cb0-6fdf7ab2c8a8';
         }
     }
 }

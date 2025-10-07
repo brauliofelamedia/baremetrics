@@ -80,6 +80,24 @@
                                     Importar todos
                                 </button>
                             </form>
+                            
+                            @if(request('status') === 'imported')
+                                @php
+                                    $importedCount = $comparison->missingUsers()->where('import_status', 'imported')->count();
+                                @endphp
+                                @if($importedCount > 0)
+                                    <form method="POST" 
+                                          action="{{ route('admin.ghl-comparison.delete-imported-users', $comparison) }}" 
+                                          style="display: inline; margin-left: 10px;"
+                                          onsubmit="return confirm('⚠️ ADVERTENCIA: Esta acción eliminará PERMANENTEMENTE {{ $importedCount }} usuarios importados de Baremetrics y cambiará su estado a pendiente. ¿Estás seguro?')">
+                                        @csrf
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="fas fa-trash-alt"></i>
+                                            Borrar usuarios importados ({{ $importedCount }})
+                                        </button>
+                                    </form>
+                                @endif
+                            @endif
                         </div>
                     </div>
 
@@ -98,6 +116,23 @@
                             <strong>Nota:</strong> La importación con plan detecta automáticamente si el usuario tiene tags como "creetelo_anual", "creetelo_mensual", etc. y crea el plan correspondiente.
                         </small>
                     </div>
+
+                    @if(request('status') === 'imported')
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Función de Borrado Masivo:</h6>
+                            <p class="mb-1">
+                                <strong>El botón "Borrar usuarios importados" eliminará PERMANENTEMENTE:</strong>
+                            </p>
+                            <ul class="mb-1">
+                                <li>Todos los usuarios con estado "Importado" de Baremetrics</li>
+                                <li>Sus suscripciones y planes asociados</li>
+                                <li>Cambiará el estado de los usuarios a "Pendiente" para permitir re-importación</li>
+                            </ul>
+                            <small class="text-muted">
+                                <strong>⚠️ ADVERTENCIA:</strong> Esta acción es irreversible. Los datos se eliminarán completamente de Baremetrics.
+                            </small>
+                        </div>
+                    @endif
 
                     <!-- Formulario para importación masiva -->
                     <form method="POST" action="{{ route('admin.ghl-comparison.import-users', $comparison) }}" id="bulk-import-form">
@@ -183,15 +218,6 @@
                                             <td>
                                                 <div class="btn-group btn-group-sm" role="group">
                                                     @if($user->import_status === 'pending')
-                                                        <!-- Botón de importación simple -->
-                                                        <form method="POST" 
-                                                              action="{{ route('admin.ghl-comparison.retry-import', $user) }}" 
-                                                              style="display: inline;">
-                                                            @csrf
-                                                            <button type="submit" class="btn btn-success" title="Importar usuario simple">
-                                                                <i class="fas fa-upload"></i>
-                                                            </button>
-                                                        </form>
                                                         
                                                         <!-- Botón de importación con plan -->
                                                         <form method="POST" 

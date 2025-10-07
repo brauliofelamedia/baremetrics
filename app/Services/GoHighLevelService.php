@@ -891,4 +891,62 @@ class GoHighLevelService
             return null;
         }
     }
+
+    /**
+     * Update contact in GoHighLevel
+     * 
+     * @param string $contactId
+     * @param array $updateData
+     * @return array|null
+     */
+    public function updateContact(string $contactId, array $updateData): ?array
+    {
+        try {
+            $token = $this->ensureValidToken();
+            
+            $response = $this->client->request('PUT', "{$this->base_url}/contacts/{$contactId}", [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                    'Authorization' => "Bearer {$token}",
+                    'Version' => '2021-07-28',
+                ],
+                'json' => $updateData,
+            ]);
+
+            if ($response->getStatusCode() !== 200) {
+                throw new \Exception("Error en la API: " . $response->getStatusCode());
+            }
+
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            Log::info('Contacto actualizado en GoHighLevel', [
+                'contact_id' => $contactId,
+                'update_data' => $updateData,
+                'result' => $result
+            ]);
+
+            return $result;
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $responseBody = $e->getResponse()->getBody()->getContents();
+            $errorData = json_decode($responseBody, true);
+            
+            Log::error('Error de cliente al actualizar contacto en GoHighLevel', [
+                'status_code' => $e->getResponse()->getStatusCode(),
+                'response_body' => $errorData,
+                'contact_id' => $contactId,
+                'update_data' => $updateData
+            ]);
+            
+            throw new \Exception("Error al actualizar contacto: " . $e->getMessage());
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar contacto en GoHighLevel', [
+                'error' => $e->getMessage(),
+                'contact_id' => $contactId,
+                'update_data' => $updateData
+            ]);
+            throw new \Exception("Error al actualizar contacto: " . $e->getMessage());
+        }
+    }
 }
