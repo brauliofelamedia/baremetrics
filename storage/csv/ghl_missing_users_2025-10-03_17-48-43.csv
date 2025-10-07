@@ -1,0 +1,3 @@
+Email,Name,Phone,Company,"Business Name",Tags,Created,"Last Activity","Additional Emails","Additional Phones"
+juan@example.com,"Juan Pérez",+1234567890,"Juan Pérez Consulting","Juan Pérez Consulting","creetelo_mensual,directorio",2024-01-15,2024-01-20,juan2@example.com,+1234567891
+maria@example.com,"María García",+0987654321,"María García Inc","María García Inc","creetelo_anual,upsell_acbi_creetelo",2024-01-16,2024-01-21,maria2@example.com,+0987654322

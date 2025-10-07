@@ -364,7 +364,7 @@ class GoHighLevelService
     public function getContactsByTags($tags = [], $page = 1)
     {
         $body = [
-            'pageLimit' => 20,
+            'pageLimit' => 100,
             'locationId' => $this->location,
             'page' => $page
         ];
@@ -841,5 +841,54 @@ class GoHighLevelService
                     'data' => $subscriptionData
                 ];
             }
+    }
+
+    /**
+     * Get payments/transactions for a contact from GoHighLevel
+     * 
+     * @param string $contactId
+     * @return array|null
+     */
+    public function getContactPayments(string $contactId): ?array
+    {
+        $token = $this->ensureValidToken();
+        
+        try {
+            $headers = [
+                'Accept' => 'application/json',
+                'Version' => '2021-07-28',
+                'Authorization' => "Bearer {$token}"
+            ];
+            
+            $request = new \GuzzleHttp\Psr7\Request(
+                'GET', 
+                "{$this->base_url}/payments/transactions?altId={$this->location}&altType=location&contactId={$contactId}", 
+                $headers
+            );
+            
+            $res = $this->client->sendAsync($request)->wait();
+            $data = json_decode($res->getBody(), true);
+
+            Log::debug('Respuesta de pagos de GoHighLevel', [
+                'contact_id' => $contactId,
+                'data' => $data
+            ]);
+
+            if (empty($data['data'])) {
+                Log::info('No se encontraron pagos para el contacto', [
+                    'contact_id' => $contactId
+                ]);
+                return null;
+            }
+
+            return $data['data'];
+            
+        } catch (\Exception $e) {
+            Log::error('Error al obtener pagos de GoHighLevel', [
+                'contact_id' => $contactId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
     }
 }

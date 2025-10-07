@@ -110,65 +110,97 @@ class ListMissingUsersFromBaremetrics extends Command
     }
 
     /**
-     * Obtener usuarios de GHL filtrados por tags
+     * Obtener usuarios de GHL filtrados por tags (operador OR)
      */
     private function getGHLUsers(array $tags, array $excludeTags, int $limit): array
     {
-        $allUsers = [];
-        $processedCount = 0;
-
-        foreach ($tags as $tag) {
-            $this->line("   📄 Procesando tag: {$tag}");
+        $this->line("   📄 Procesando tags con operador OR: " . implode(', ', $tags));
+        
+        try {
+            $allUsers = [];
+            $processedCount = 0;
             
-            try {
-                $response = $this->ghlService->getContactsByTagsOptimized([$tag], $limit);
+            // Obtener contactos usando getContacts y filtrar localmente por tags
+            $this->line("     🔍 Obteniendo contactos y filtrando por tags localmente...");
+            
+            $page = 1;
+            $hasMore = true;
+            $processedCount = 0;
+            $pageLimit = 100;
+            
+            $maxPages = 50; // Límite de páginas para evitar bucles infinitos
+            
+            while ($processedCount < 5000 && $page <= $maxPages) {
+                $response = $this->ghlService->getContacts('', $page, $pageLimit);
                 
-                if ($response && isset($response['contacts'])) {
-                    $users = $response['contacts'];
-                    $processedCount += count($users);
+                if (!$response || empty($response['contacts'])) {
+                    $this->line("       • No hay más contactos disponibles en la página {$page}");
+                    break;
+                }
+
+                $contacts = $response['contacts'];
+                $processedCount += count($contacts);
+                
+                // Filtrar contactos por tags
+                foreach ($contacts as $contact) {
+                    $contactTags = $contact['tags'] ?? [];
                     
-                    foreach ($users as $user) {
-                        if (!empty($user['email']) && $this->isValidEmail($user['email'])) {
-                            $userTags = $user['tags'] ?? [];
+                    // Verificar si tiene alguno de los tags especificados (OR logic)
+                    $hasMatchingTag = !empty(array_intersect($tags, $contactTags));
+                    
+                    if ($hasMatchingTag) {
+                        if (!empty($contact['email']) && $this->isValidEmail($contact['email'])) {
+                            $userTags = $contactTags;
                             
                             // Verificar si tiene tags excluidos
                             $hasExcludedTags = !empty(array_intersect($excludeTags, $userTags));
                             
                             if (!$hasExcludedTags) {
-                                $allUsers[] = [
-                                    'id' => $user['id'],
-                                    'name' => $user['name'] ?? 'Sin nombre',
-                                    'email' => strtolower(trim($user['email'])),
-                                    'tags' => $userTags,
-                                    'phone' => $user['phone'] ?? '',
-                                    'company' => $user['companyName'] ?? ''
-                                ];
+                                // Verificar si ya existe (evitar duplicados)
+                                $exists = false;
+                                foreach ($allUsers as $existingUser) {
+                                    if ($existingUser['email'] === strtolower(trim($contact['email']))) {
+                                        $exists = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if (!$exists) {
+                                    $allUsers[] = [
+                                        'id' => $contact['id'],
+                                        'name' => $contact['name'] ?? 'Sin nombre',
+                                        'email' => strtolower(trim($contact['email'])),
+                                        'tags' => $userTags,
+                                        'phone' => $contact['phone'] ?? '',
+                                        'company' => $contact['companyName'] ?? ''
+                                    ];
+                                }
                             }
                         }
                     }
-                    
-                    $this->line("     • {$tag}: " . count($users) . " usuarios procesados");
                 }
-            } catch (\Exception $e) {
-                $this->warn("     ⚠️ Error procesando tag {$tag}: " . $e->getMessage());
+                
+                // Incrementar página para continuar
+                $page++;
+                
+                // Pausa pequeña entre requests
+                usleep(100000);
+                
+                // Mostrar progreso cada 500 contactos procesados
+                if ($processedCount % 500 === 0) {
+                    $this->line("       • Progreso: {$processedCount} contactos procesados, " . count($allUsers) . " usuarios válidos encontrados");
+                }
             }
+            
+            $this->line("     • Total contactos procesados: {$processedCount}");
+            $this->line("     • Usuarios válidos encontrados: " . count($allUsers));
+
+            return $allUsers;
+            
+        } catch (\Exception $e) {
+            $this->warn("     ⚠️ Error procesando tags: " . $e->getMessage());
+            return [];
         }
-
-        // Eliminar duplicados por email
-        $uniqueUsers = [];
-        $emails = [];
-        
-        foreach ($allUsers as $user) {
-            if (!in_array($user['email'], $emails)) {
-                $uniqueUsers[] = $user;
-                $emails[] = $user['email'];
-            }
-        }
-
-        $this->line("   📊 Total procesados: {$processedCount}");
-        $this->line("   📊 Únicos encontrados: " . count($uniqueUsers));
-
-        return $uniqueUsers;
     }
 
     /**

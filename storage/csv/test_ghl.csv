@@ -1,0 +1,4 @@
+Contact Id,First Name,Last Name,Business Name,Company Name,Phone,Email,Created,Last Activity,Tags,Additional Emails,Additional Phones
+12345,Juan,Pérez,Juan Pérez Consulting,Juan Pérez Consulting,+1234567890,juan@example.com,2024-01-15,2024-01-20,"creetelo_mensual,directorio","juan2@example.com","+1234567891"
+67890,María,García,María García Inc,María García Inc,+0987654321,maria@example.com,2024-01-16,2024-01-21,"creetelo_anual,upsell_acbi_creetelo","maria2@example.com","+0987654322"
+11111,Pedro,López,Pedro López LLC,Pedro López LLC,+1122334455,pedro@example.com,2024-01-17,2024-01-22,"unsubscribe,creetelo_mensual","pedro2@example.com","+1122334456"

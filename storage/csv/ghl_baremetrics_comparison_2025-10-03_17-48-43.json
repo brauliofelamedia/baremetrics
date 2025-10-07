@@ -1,0 +1,40 @@
+{
+    "timestamp": "2025-10-03T17:48:43.447683Z",
+    "summary": {
+        "total_ghl_users": 2,
+        "total_baremetrics_emails": 0,
+        "common_users": 0,
+        "missing_users": 2,
+        "sync_percentage": 0,
+        "missing_percentage": 100
+    },
+    "common_users": [],
+    "missing_users": [
+        {
+            "id": "12345",
+            "name": "Juan Pérez",
+            "email": "juan@example.com",
+            "phone": "+1234567890",
+            "company": "Juan Pérez Consulting",
+            "business_name": "Juan Pérez Consulting",
+            "tags": "creetelo_mensual,directorio",
+            "created": "2024-01-15",
+            "last_activity": "2024-01-20",
+            "additional_emails": "juan2@example.com",
+            "additional_phones": "+1234567891"
+        },
+        {
+            "id": "67890",
+            "name": "María García",
+            "email": "maria@example.com",
+            "phone": "+0987654321",
+            "company": "María García Inc",
+            "business_name": "María García Inc",
+            "tags": "creetelo_anual,upsell_acbi_creetelo",
+            "created": "2024-01-16",
+            "last_activity": "2024-01-21",
+            "additional_emails": "maria2@example.com",
+            "additional_phones": "+0987654322"
+        }
+    ]
+}

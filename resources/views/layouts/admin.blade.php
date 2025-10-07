@@ -415,6 +415,13 @@
                             Stripe
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ request()->routeIs('admin.ghl-comparison.*') ? 'active' : '' }}" 
+                           href="{{ route('admin.ghl-comparison.index') }}">
+                            <i class="fas fa-exchange-alt"></i>
+                            Comparaciones GHL
+                        </a>
+                    </li>
                     
                 </ul>
             </div>
@@ -441,6 +448,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');

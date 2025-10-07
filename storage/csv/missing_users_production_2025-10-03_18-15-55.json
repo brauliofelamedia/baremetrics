@@ -1,0 +1,1312 @@
+{
+    "timestamp": "2025-10-03_18-15-55",
+    "total_missing": 145,
+    "environment": "production",
+    "missing_users": [
+        {
+            "name": "Yuviana Tirado",
+            "email": "yuvianat.holisticcoach@gmail.com",
+            "phone": "16186981204",
+            "company": "",
+            "tags": "optin_sales, creetelo_mensual, directorio",
+            "created": "2025-09-14T09:05:39-07:00",
+            "last_activity": "2025-09-30T16:30:21-07:00"
+        },
+        {
+            "name": "Lizz Leony",
+            "email": "lizzleony@gmail.com",
+            "phone": "15713591657",
+            "company": "",
+            "tags": "acbi_compra_vsm, upsell_acbi_creetelo, creetelo_anual, directorio",
+            "created": "2025-07-19T07:16:21-07:00",
+            "last_activity": "2025-09-29T14:02:13-07:00"
+        },
+        {
+            "name": "Marisol Kamkoff",
+            "email": "marisolkfitbyme@gmail.com",
+            "phone": "18452697619",
+            "company": "",
+            "tags": "ambicion_registro, acbi_compra_vsm, upsell_acbi_creetelo, creetelo_anual",
+            "created": "2025-07-13T04:52:24-07:00",
+            "last_activity": "2025-09-01T06:23:02-07:00"
+        },
+        {
+            "name": "Ninfa Celeste cardozo lópez",
+            "email": "ninfa.cardozo.lopez@gmail.com",
+            "phone": "5.95971E+11",
+            "company": "",
+            "tags": "ambicion_registro, acbi_compra_vsm, upsell_acbi_creetelo, creetelo_anual, acbi_bonus",
+            "created": "2025-07-12T22:15:46-07:00",
+            "last_activity": "2025-09-29T14:02:10-07:00"
+        },
+        {
+            "name": "Haidy Oropeza",
+            "email": "horopeza8@gmail.com",
+            "phone": "16106180607",
+            "company": "",
+            "tags": "ambicion_registro, acbi_compra_vsm, upsell_acbi_creetelo, creetelo_anual, acbi_bonus",
+            "created": "2025-07-11T12:54:55-07:00",
+            "last_activity": "2025-09-29T14:02:12-07:00"
+        },
+        {
+            "name": "Annyflor Acero",
+            "email": "annyfloracero@gmail.com",
+            "phone": "13055462486",
+            "company": "",
+            "tags": "creetelo_anual, espanol, workbook_2024-2025_esp, directorio, con_compro_vip",
+            "created": "2025-06-27T15:27:03-07:00",
+            "last_activity": "2025-09-29T14:02:11-07:00"
+        },
+        {
+            "name": "Anita Alves",
+            "email": "pesnaterra2017@gmail.com",
+            "phone": "3.51917E+11",
+            "company": "",
+            "tags": "creetelo_mensual",
+            "created": "2025-06-21T05:19:44-07:00",
+            "last_activity": "2025-09-29T14:02:11-07:00"
+        },
+        {
+            "name": "Alexander Becerra",
+            "email": "germanwithalexb@gmail.com",
+            "phone": "4.91633E+11",
+            "company": "",
+            "tags": "creetelo_mensual",
+            "created": "2025-06-03T07:26:27-07:00",
+            "last_activity": "2025-09-29T14:02:08-07:00"
+        },
+        {
+            "name": "Sorayda Del",
+            "email": "damacela1@yahoo.com",
+            "phone": "50587531258",
+            "company": "",
+            "tags": "whatsapp, créetelo_mensual, directorio, creetelo_anual, bj25_compro_anual",
+            "created": "2025-05-06T08:23:33-07:00",
+            "last_activity": "2025-09-29T14:02:08-07:00"
+        },
+        {
+            "name": "Andreina Alvarez",
+            "email": "projectmainc@gmail.com",
+            "phone": "16478932781",
+            "company": "",
+            "tags": "creetelo_mensual, directorio",
+            "created": "2025-05-02T19:09:00-07:00",
+            "last_activity": "2025-09-29T14:02:09-07:00"
+        },
+        {
+            "name": "Angelica Jimenez",
+            "email": "angiejimenez_f@hotmail.com",
+            "phone": "17865724000",
+            "company": "",
+            "tags": "creetelo_mensual, bj25_compro_mensual",
+            "created": "2025-04-27T05:00:05-07:00",
+            "last_activity": "2025-09-29T14:02:06-07:00"
+        },
+        {
+            "name": "Sharon Hidalgo",
+            "email": "sharonhidalgop@gmail.com",
+            "phone": "5.84149E+11",
+            "company": "",
+            "tags": "creetelo_mensual, bj25_compro_mensual, formulario_innercircle, directorio",
+            "created": "2025-04-26T16:31:09-07:00",
+            "last_activity": "2025-09-30T14:10:50-07:00"
+        },
+        {
+            "name": "Daniela Capielo",
+            "email": "danikpi02@gmail.com",
+            "phone": "56930833277",
+            "company": "",
+            "tags": "whatsapp, creetelo_mensual",
+            "created": "2025-04-22T03:48:11-07:00",
+            "last_activity": "2025-09-29T14:02:08-07:00"
+        },
+        {
+            "name": "Irene Devarona",
+            "email": "irenedevaronac@gmail.com",
+            "phone": "17865467662",
+            "company": "",
+            "tags": "active_subscriber, creetelo_mensual, directorio",
+            "created": "2025-03-26T18:42:57-07:00",
+            "last_activity": "2025-09-29T14:02:10-07:00"
+        },
+        {
+            "name": "Clara Ascencio",
+            "email": "claraascenciob@gmail.com",
+            "phone": "4.91794E+11",
+            "company": "",
+            "tags": "bj25_lead_registrada_europa, bj25_wpp_noingresa_europa, creetelo_mensual, bj25_compro_mensual, directorio",
+            "created": "2025-03-25T22:47:09-07:00",
+            "last_activity": "2025-09-29T14:01:55-07:00"
+        },
+        {
+            "name": "Mariana Martinez jimenez",
+            "email": "marianamj0906@gmail.com",
+            "phone": "16164985552",
+            "company": "",
+            "tags": "bj25_lead_registrada_otros(usa), bj25_wpp_noingresa_otros(usa), creetelo_anual, bj25_compro_anual, directorio",
+            "created": "2025-03-25T10:44:01-07:00",
+            "last_activity": "2025-09-29T14:02:01-07:00"
+        },
+        {
+            "name": "Flor Rosales",
+            "email": "ivonnerosabiz@gmail.com",
+            "phone": "19177542086",
+            "company": "",
+            "tags": "bj25_lead_registrada_ny, bj25_wpp_noingresa_ny, creetelo_anual, bj25_compro_anual, directorio, bonus24hs",
+            "created": "2025-03-23T06:08:18-07:00",
+            "last_activity": "2025-09-29T14:02:04-07:00"
+        },
+        {
+            "name": "Elizabeth González rebolledo",
+            "email": "dspinozaeli1812@gmail.com",
+            "phone": "5.41157E+11",
+            "company": "",
+            "tags": "bj25_lead_registrada_argentina, bj25_wpp_ingresada_arg, creetelo_mensual, bj25_compro_mensual, directorio",
+            "created": "2025-03-21T11:20:41-07:00",
+            "last_activity": "2025-09-29T14:01:56-07:00"
+        },
+        {
+            "name": "Tatiana Salazar",
+            "email": "tatianaenator@gmail.com",
+            "phone": "16477037482",
+            "company": "",
+            "tags": "bj25_lead_registrada_canada, bj25_wpp_noingresada_canada, creetelo_mensual, formulario_innercircle, ic_agendaentrevista",
+            "created": "2025-03-19T17:42:06-07:00",
+            "last_activity": "2025-09-29T14:02:10-07:00"
+        },
+        {
+            "name": "Marielena Barrios",
+            "email": "maelbale10@gmail.com",
+            "phone": "17868201370",
+            "company": "",
+            "tags": "bj25_lead_registrada_miami, bj25_wpp_noingresa_miami, creetelo_mensual, bj25_compro_mensual, directorio",
+            "created": "2025-03-17T07:13:02-07:00",
+            "last_activity": "2025-09-29T14:01:59-07:00"
+        },
+        {
+            "name": "Rossana Maldonado",
+            "email": "lasermedflorida@gmail.com",
+            "phone": "17865544117",
+            "company": "",
+            "tags": "bj25_lead_registrada_miami, bj25_wpp_noingresa_miami, active_subscriber, ambicion_registro, acbi_compra_vsm, upsell_acbi_creetelo, creetelo_anual, acbi_bonus",
+            "created": "2025-03-16T16:19:47-07:00",
+            "last_activity": "2025-09-29T14:02:12-07:00"
+        },
+        {
+            "name": "Nathaly Sipva dotti",
+            "email": "nathalysdotti@gmail.com",
+            "phone": "14372144922",
+            "company": "",
+            "tags": "bj25_lead_registrada_canada, bj25_wpp_noingresada_canada, creetelo_mensual, bj25_compro_mensual, bj25_wpp_ingresada_canada, directorio, ambicion_registro",
+            "created": "2025-03-15T05:52:07-07:00",
+            "last_activity": "2025-09-29T14:01:51-07:00"
+        },
+        {
+            "name": "Velilla Velilla",
+            "email": "cvelitara@gmail.com",
+            "phone": "34659213909",
+            "company": "",
+            "tags": "bj25_lead_registrada_europa, bj25_wpp_ingresada_europa, creetelo_anual, bj25_compro_anual, directorio, lm_meditación, espanol",
+            "created": "2025-03-12T06:27:58-07:00",
+            "last_activity": "2025-09-29T14:01:58-07:00"
+        },
+        {
+            "name": "Natalia Riquel",
+            "email": "naty091086@gmail.com",
+            "phone": "",
+            "company": "",
+            "tags": "espanol, bj25_compro_mensual, bj25_lead_registrada_europa, creetelo_mensual, irremplazable_barcelona_mayo2025",
+            "created": "2025-03-03T13:29:36-07:00",
+            "last_activity": "2025-09-29T14:02:06-07:00"
+        },
+        {
+            "name": "Silvia Gouverneur",
+            "email": "silviagoulosada@gmail.com",
+            "phone": "3.93318E+11",
+            "company": "",
+            "tags": "espanol, creetelo_mensual, bj25_compro_mensual, directorio",
+            "created": "2025-02-27T07:28:58-07:00",
+            "last_activity": "2025-09-29T14:01:54-07:00"
+        },
+        {
+            "name": "Lisett Murch",
+            "email": "hello@lisettmurch.com",
+            "phone": "19542633711",
+            "company": "",
+            "tags": "creetelo_lista_espera, creetelo_anual, directorio",
+            "created": "2025-02-23T04:59:02-07:00",
+            "last_activity": "2025-09-29T14:01:47-07:00"
+        },
+        {
+            "name": "Fernanda Ramírez",
+            "email": "fer@pilu.mx",
+            "phone": "5.25543E+11",
+            "company": "",
+            "tags": "creetelo_lista_espera, wowfriday_plan mensual, creetelo_mensual, bj25_lead_registrada_mexico, bj25_wpp_noingresa_mexico, créetelo_mensual, directorio, ambicion_registro",
+            "created": "2025-02-16T07:02:50-07:00",
+            "last_activity": "2025-09-29T14:01:49-07:00"
+        },
+        {
+            "name": "Mónica Granada",
+            "email": "monic24017@hotmail.com",
+            "phone": "5.73015E+11",
+            "company": "",
+            "tags": "espanol, workbook_2024-2025_esp, bj25_lead_registrada_colombia, bj25_wpp_noingresa_colombia, creetelo_anual, bj25_compro_anual, directorio",
+            "created": "2025-02-13T12:17:41-07:00",
+            "last_activity": "2025-09-29T14:01:51-07:00"
+        },
+        {
+            "name": "Juana Frontera",
+            "email": "drjuanafrontera@gmail.com",
+            "phone": "17866247859",
+            "company": "",
+            "tags": "espanol, bj25_lead_registrada_miami, bj25_wpp_ingresada_miami, creetelo_mensual, bj25_compro_mensual, directorio, lm_meditación",
+            "created": "2025-02-12T10:41:17-07:00",
+            "last_activity": "2025-09-29T14:01:55-07:00"
+        },
+        {
+            "name": "Pamela Castro",
+            "email": "pamecasi@gmail.com",
+            "phone": "14382293374",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, bj25_lead_registrada_canada, bj25_wpp_noingresada_canada, creetelo_anual, bj25_compro_anual, creetelo_upgrade_anual",
+            "created": "2025-02-10T11:32:21-07:00",
+            "last_activity": "2025-09-29T14:02:06-07:00"
+        },
+        {
+            "name": "Anagaby Manzano",
+            "email": "anagmanza@gmail.com",
+            "phone": "",
+            "company": "",
+            "tags": "creetelo_mensual, bj25_compro_mensual, directorio",
+            "created": "2025-02-10T11:32:08-07:00",
+            "last_activity": "2025-09-29T14:02:04-07:00"
+        },
+        {
+            "name": "Daniela Ilabaca",
+            "email": "hola@danicosas.com",
+            "phone": "56933962701",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reembolsos, creetelo_alumnos_grupo_8_jun_24_hotmart, l05_leads_invitacion_evento, espanol, clase_monetizarcreetelo_oct2024, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-fu-send, directorio, reto nas sep2024, reto_nas_sept2024_1174",
+            "created": "2025-02-10T11:30:05-07:00",
+            "last_activity": "2025-09-29T14:02:06-07:00"
+        },
+        {
+            "name": "Nelyest Wanderlinder",
+            "email": "nelyest@gmail.com",
+            "phone": "16474479938",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, creetelo_anual, bj25_compro_anual, directorio",
+            "created": "2025-02-10T11:29:46-07:00",
+            "last_activity": "2025-09-29T14:01:56-07:00"
+        },
+        {
+            "name": "Laura",
+            "email": "mlaura.hevia@gmail.com",
+            "phone": "",
+            "company": "",
+            "tags": "creetelo_mensual, directorio",
+            "created": "2025-02-10T11:29:39-07:00",
+            "last_activity": "2025-09-29T14:02:10-07:00"
+        },
+        {
+            "name": "Vanessa R",
+            "email": "vanessa@creetelo.club",
+            "phone": "5.84265E+11",
+            "company": "",
+            "tags": "creetelo_anual, directorio, acbi_bonus",
+            "created": "2025-02-05T08:22:46-07:00",
+            "last_activity": "2025-09-29T14:02:04-07:00"
+        },
+        {
+            "name": "Glendys Canpolat",
+            "email": "glen4589@gmail.com",
+            "phone": "13056997100",
+            "company": "",
+            "tags": "wowfriday_ plan anual, creetelo_anual, directorio",
+            "created": "2025-01-30T09:11:38-07:00",
+            "last_activity": "2025-09-29T14:01:44-07:00"
+        },
+        {
+            "name": "Cardenas Cardenas",
+            "email": "mena@creetelo.club",
+            "phone": "17865205620",
+            "company": "",
+            "tags": "creidas_og, creetelo_anual, directorio, cet1, cet_alumni, creidas_afiliadas, espanol, lm_workbook",
+            "created": "2025-01-29T09:45:14-07:00",
+            "last_activity": "2025-09-29T14:01:44-07:00"
+        },
+        {
+            "name": "Patricia Cruz",
+            "email": "paty.cruz3@gmail.com",
+            "phone": "5.23337E+11",
+            "company": "",
+            "tags": "espanol, workbook_2024-2025_esp, bj25_lead_registrada_mexico, bj25_wpp_ingresada_mexico, creetelo_mensual, bj25_compro_mensual",
+            "created": "2025-01-23T13:52:15-07:00",
+            "last_activity": "2025-09-29T14:02:04-07:00"
+        },
+        {
+            "name": "Andrea Rodriguez souza",
+            "email": "andysouza29@gmail.com",
+            "phone": "17864885428",
+            "company": "",
+            "tags": "whatsapp, ambicion_registro, optin_sales, creetelo_mensual",
+            "created": "2025-01-21T19:56:03-07:00",
+            "last_activity": "2025-07-10T05:42:48-07:00"
+        },
+        {
+            "name": "Nathalie Sellan",
+            "email": "nathalie.sellan@gmail.com",
+            "phone": "13213153276",
+            "company": "",
+            "tags": "wowfriday_plan mensual, migration_ac_7-2-2024, creetelo_alumnos_grupo_5_ago_23_presumir, espanol, l05_leads_invitacion_evento, newsletter_esp, wowfriday_registro_nov2024, creetelo_mensual, directorio",
+            "created": "2025-01-11T06:39:23-07:00",
+            "last_activity": "2025-09-29T14:01:42-07:00"
+        },
+        {
+            "name": "Aura Isabel gonzalez gonzalez",
+            "email": "auraisabel@creetelo.club",
+            "phone": "",
+            "company": "",
+            "tags": "wowfriday_ plan anual, creetelo_anual, directorio, cet4",
+            "created": "2025-01-06T13:10:41-07:00",
+            "last_activity": "2025-09-29T14:01:45-07:00"
+        },
+        {
+            "name": "Heidi Boada",
+            "email": "info.seracomp@gmail.com",
+            "phone": "5.84143E+11",
+            "company": "",
+            "tags": "espanol, workbook_2024-2025_esp, whatsapp, creetelo_ticketplate_mensual, wowfriday_excreida mensual, wowfriday_plan mensual, creetelo_mensual, lm_meditación, creetelo_cancelado",
+            "created": "2024-12-13T19:44:28-07:00",
+            "last_activity": "2025-06-13T09:28:29-07:00"
+        },
+        {
+            "name": "Luz Mohr",
+            "email": "lamargaritadeluz@gmail.com",
+            "phone": "34673874421",
+            "company": "",
+            "tags": "bj25_lead_registrada_europa, bj25_wpp_noingresa_europa, creetelo_mensual, bj25_compro_mensual, irremplazable_barcelona_mayo2025, lm_meditación, espanol, ambicion_registro, acbi_compra_vsm, directorio",
+            "created": "2024-12-13T04:05:10-07:00",
+            "last_activity": "2025-09-29T14:01:54-07:00"
+        },
+        {
+            "name": "Vanessa Rondon",
+            "email": "vanesa.rondon@gmail.com",
+            "phone": "56941344754",
+            "company": "",
+            "tags": "wowfriday_excreida mensual, creetelo_mensual, wa-followup, valentinesday_creidas_2025, directorio",
+            "created": "2024-11-27T21:18:50-07:00",
+            "last_activity": "2025-09-29T14:01:28-07:00"
+        },
+        {
+            "name": "Micaela",
+            "email": "micaela.araujom@gmail.com",
+            "phone": "34610932996",
+            "company": "",
+            "tags": "creetelo_mensual, directorio, wa-fu-send, wowfriday_plan mensual",
+            "created": "2024-11-27T16:37:29-07:00",
+            "last_activity": "2025-10-02T21:00:59-07:00"
+        },
+        {
+            "name": "Natalia Molina",
+            "email": "natmolina.psi@gmail.com",
+            "phone": "5.2332E+11",
+            "company": "",
+            "tags": "wowfriday_ plan anual, creetelo_anual, directorio",
+            "created": "2024-11-26T11:33:22-07:00",
+            "last_activity": "2025-09-29T14:01:16-07:00"
+        },
+        {
+            "name": "Maria Fernanda",
+            "email": "mariafaraque@gmail.com",
+            "phone": "14074551057",
+            "company": "",
+            "tags": "wowfriday_registro_nov2024, wowfriday_excreida anual, creetelo_anual, wa-followup, directorio",
+            "created": "2024-11-21T21:19:13-07:00",
+            "last_activity": "2025-09-29T14:01:25-07:00"
+        },
+        {
+            "name": "Maria Gabriela vera",
+            "email": "gabivera@gmail.com",
+            "phone": "34684304994",
+            "company": "",
+            "tags": "wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, wa-followup, bj25_lead_registrada_europa, bj25_wpp_noingresa_europa, directorio",
+            "created": "2024-11-20T07:25:53-07:00",
+            "last_activity": "2025-10-02T03:20:51-07:00"
+        },
+        {
+            "name": "Mary Babojian",
+            "email": "coucoucultura@gmail.com",
+            "phone": "33652743999",
+            "company": "",
+            "tags": "wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-11-20T05:05:58-07:00",
+            "last_activity": "2025-09-29T14:01:29-07:00"
+        },
+        {
+            "name": "Amgie Gutierrez",
+            "email": "lactanciasupermama@gmail.com",
+            "phone": "17863696932",
+            "company": "",
+            "tags": "wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, directorio",
+            "created": "2024-11-18T10:05:25-07:00",
+            "last_activity": "2025-09-29T14:01:49-07:00"
+        },
+        {
+            "name": "Nan Gutiérrez",
+            "email": "nanyeligtzandrade@gmail.com",
+            "phone": "5.27711E+11",
+            "company": "",
+            "tags": "wowfriday_registro_nov2024, vender(te) sin miedo, hotmart, wowfriday_plan mensual, creetelo_mensual, espanol, workbook_2024-2025_esp, directorio",
+            "created": "2024-11-15T06:38:07-07:00",
+            "last_activity": "2025-09-29T14:01:28-07:00"
+        },
+        {
+            "name": "Yelimar Barrios",
+            "email": "recursos.yeliart@gmail.com",
+            "phone": "5.84246E+11",
+            "company": "",
+            "tags": "wowfriday_ plan anual, creetelo_anual, migration_ac_7-2-2024, l05_leads_invitacion_evento, reto nas sep2024, reto_nas_sept2024_1174, creidas_afiliadas, creetelo_lanzamiento_vsm_retonas, creetelo_cancelado, [interno] creetelo_alumnos_general_off, creetelo_alumnos_grupo_7_feb_24_regist_mn, creidas_og, espanol, newsletter_esp, directorio",
+            "created": "2024-11-08T07:58:43-07:00",
+            "last_activity": "2025-09-29T14:01:02-07:00"
+        },
+        {
+            "name": "Grace Martínez",
+            "email": "gracementorias@gmail.com",
+            "phone": "5.93985E+11",
+            "company": "",
+            "tags": "clase_monetizarcreetelo_oct2024, wowfriday_registro_nov2024, bj25_lead_registrada_otros, bj25_wpp_ingresada_europa, bj25_wpp_noingresa_otrospaises, creetelo_mensual, bj25_compro_mensual, directorio, bonus24hs",
+            "created": "2024-10-08T06:04:22-07:00",
+            "last_activity": "2025-09-29T14:02:01-07:00"
+        },
+        {
+            "name": "Mayela Porras",
+            "email": "porras.mayela@gmail.com",
+            "phone": "17869254168",
+            "company": "",
+            "tags": "[interno] creetelo_alumnos_general_off, creetelo_alumnos_grupo_8_jun_24_hotmart, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-09-27T18:00:43-07:00",
+            "last_activity": "2025-09-29T14:01:28-07:00"
+        },
+        {
+            "name": "Juancillo Encina",
+            "email": "jota@nextlevelmastery.org",
+            "phone": "5.41135E+11",
+            "company": "",
+            "tags": "creetelo_cancelado, [interno] creetelo_alumnos_general_off, wa-fu-send, bj25_lead_registrada_texas, bj25_wpp_noingresa_texas, bj25_lead_registrada_argentina, bj25_wpp_noingresa_arg, espanol, lm_workbook, creetelo_anual",
+            "created": "2024-09-26T13:00:26-07:00",
+            "last_activity": "2025-09-29T14:01:42-07:00"
+        },
+        {
+            "name": "Valentina",
+            "email": "vchica@vcgmc.com",
+            "phone": "5.73027E+11",
+            "company": "",
+            "tags": "reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, bj25_lead_registrada_colombia, bj25_lead_registrada_miami, bj25_wpp_noingresa_miami, bj25_wpp_noingresa_colombia, creetelo_anual, bj25_compro_anual, directorio",
+            "created": "2024-09-26T07:54:52-07:00",
+            "last_activity": "2025-09-29T14:01:57-07:00"
+        },
+        {
+            "name": "Luisa Kremenetsky",
+            "email": "luisa5387@gmail.com",
+            "phone": "18312781693",
+            "company": "",
+            "tags": "reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-09-26T07:54:52-07:00",
+            "last_activity": "2025-09-30T14:10:44-07:00"
+        },
+        {
+            "name": "Montserrat Gomez",
+            "email": "montse.cgm@gmail.com",
+            "phone": "50763441168",
+            "company": "",
+            "tags": "reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, wowfriday_registro_nov2024, wowfriday_excreida mensual, espanol, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-09-26T07:54:51-07:00",
+            "last_activity": "2025-09-29T14:01:22-07:00"
+        },
+        {
+            "name": "Alba García",
+            "email": "heraylilith@gmail.com",
+            "phone": "4.47704E+11",
+            "company": "",
+            "tags": "reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, bj25_lead_registrada_europa, bj25_wpp_ingresada_europa, directorio",
+            "created": "2024-09-26T07:54:48-07:00",
+            "last_activity": "2025-09-29T14:01:22-07:00"
+        },
+        {
+            "name": "Lydiana Garcia",
+            "email": "info@drlydianagarcia.com",
+            "phone": "13105925333",
+            "company": "",
+            "tags": "reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, clase_monetizarcreetelo_oct2024, reto_nas_pago_sept2024_creetelo_bonus_charla-4oct, creetelo_lanzamiento_vsm_retonas, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, directorio, con_compro_vip",
+            "created": "2024-09-26T07:54:48-07:00",
+            "last_activity": "2025-09-29T14:01:09-07:00"
+        },
+        {
+            "name": "Michelle Guiralt",
+            "email": "michi@creetelo.club",
+            "phone": "",
+            "company": "",
+            "tags": "reto nas sep2024, reto_nas_pago_sept2024, creidas_afiliadas_equipodeventa, reto_nas_sept2024_1174, mdt, creetelo_anual, directorio",
+            "created": "2024-09-11T15:19:35-07:00",
+            "last_activity": "2025-10-02T03:36:14-07:00"
+        },
+        {
+            "name": "Yose Perez",
+            "email": "yoseperezp@gmail.com",
+            "phone": "4.47776E+11",
+            "company": "",
+            "tags": "[interno] creetelo_alumnos_general_off, creetelo_lanzamiento_vsm_retonas, directorio, ambicion_registro, creetelo_upgrade_anual, creetelo_anual",
+            "created": "2024-09-10T03:48:44-07:00",
+            "last_activity": "2025-09-29T14:02:11-07:00"
+        },
+        {
+            "name": "Zoraima Hernández",
+            "email": "zoraimah15@gmail.com",
+            "phone": "14126884270",
+            "company": "",
+            "tags": "espanol, clase_monetizarcreetelo_oct2024, wowfriday_compraron_nov2024, wowfriday_registro_nov2024, creetelo_ticketplate_mensual, wowfriday_plan mensual, creetelo_mensual, wa-followup, workbook_2024-2025_esp, directorio, lm_meditación",
+            "created": "2024-09-04T00:04:11-07:00",
+            "last_activity": "2025-10-02T19:07:50-07:00"
+        },
+        {
+            "name": "Angelica Carvajal",
+            "email": "mariacarvajalc@hotmail.com",
+            "phone": "5.73103E+11",
+            "company": "",
+            "tags": "creetelo_cancelado, wowfriday_plan mensual, creetelo_mensual, bj25_lead_registrada_colombia, bj25_wpp_noingresa_colombia, directorio",
+            "created": "2024-09-03T15:35:55-07:00",
+            "last_activity": "2025-03-22T07:03:48-07:00"
+        },
+        {
+            "name": "Michelle Poler",
+            "email": "michelle@creetelo.club",
+            "phone": "",
+            "company": "",
+            "tags": "creetelo_anual, directorio",
+            "created": "2024-08-02T00:18:44-07:00",
+            "last_activity": "2025-09-29T14:02:12-07:00"
+        },
+        {
+            "name": "Sophi Araujo",
+            "email": "sophi@creetelo.club",
+            "phone": "18016827061",
+            "company": "",
+            "tags": "creetelo_anual, directorio, espanol, workbook_2024-2025_eng, workbook_2024-2025_esp, ic_formsubmitted_ig",
+            "created": "2024-07-15T10:06:57-07:00",
+            "last_activity": "2025-09-29T14:02:08-07:00"
+        },
+        {
+            "name": "Yelimar Sanes",
+            "email": "yelimarsanesc@gmail.com",
+            "phone": "19542452577",
+            "company": "",
+            "tags": "creetelo_mensual, bj25_lead_registrada_orlando, bj25_wpp_noingresa_orlando, directorio, cet_talks_2, cet3, cet_alumni",
+            "created": "2024-07-02T21:58:31-07:00",
+            "last_activity": "2025-09-29T14:01:44-07:00"
+        },
+        {
+            "name": "Maria Ignacia",
+            "email": "mariaignaciagomezv@gmail.com",
+            "phone": "56951307615",
+            "company": "",
+            "tags": "creetelo_cancelado, wowfriday_plan mensual, creetelo_mensual, bj25_lead_registrada_chile, bj25_wpp_ingresada_chile, directorio, ambicion_registro",
+            "created": "2024-07-02T21:58:23-07:00",
+            "last_activity": "2025-07-10T13:10:42-07:00"
+        },
+        {
+            "name": "Maria De",
+            "email": "mari.padron.c@gmail.com",
+            "phone": "5.84242E+11",
+            "company": "",
+            "tags": "creetelo_upgrade_anual, creetelo_anual, directorio",
+            "created": "2024-07-02T21:58:17-07:00",
+            "last_activity": "2025-10-01T09:00:39-07:00"
+        },
+        {
+            "name": "Olga Robleto",
+            "email": "olgacreadora@gmail.com",
+            "phone": "50762844782",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-07-02T21:58:17-07:00",
+            "last_activity": "2025-09-29T14:01:25-07:00"
+        },
+        {
+            "name": "Ramani Perez",
+            "email": "ramani.ptovar@gmail.com",
+            "phone": "19802029826",
+            "company": "",
+            "tags": "creetelo_cancelado, wowfriday_excreida mensual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:58:16-07:00",
+            "last_activity": "2025-01-30T15:23:13-07:00"
+        },
+        {
+            "name": "Stephanie Montenegro lacayo",
+            "email": "stephaniemontenegro@enmodoventas.com",
+            "phone": "50586851862",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelocon_abr_24, creetelocon_abr_24_vip, espanol, l05_leads_invitacion_evento, newsletter_esp, hotmart, reto nas sep2024, reto_nas_sept2024_1174, [interno] creetelo_alumnos_general_off, creidas_og, workbook_2024-2025_esp, bj25_lead_registrada_otros, active_subscriber, con_compro_vip, creetelo_mensual",
+            "created": "2024-07-02T21:58:14-07:00",
+            "last_activity": "2025-09-29T14:02:11-07:00"
+        },
+        {
+            "name": "Stephanie Essenfeld",
+            "email": "essenfeldstephanie@gmail.com",
+            "phone": "17863955734",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, creidas_og, creetelo_anual, directorio",
+            "created": "2024-07-02T21:58:14-07:00",
+            "last_activity": "2025-09-29T14:01:47-07:00"
+        },
+        {
+            "name": "Malvina Soledad galetti",
+            "email": "malvinagaleti@hotmail.com",
+            "phone": "5.41155E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, bj25_lead_registrada_argentina, bj25_wpp_noingresa_arg, creetelo_mensual, bj25_compro_mensual, directorio, bonus24hs, ambicion_registro",
+            "created": "2024-07-02T21:58:12-07:00",
+            "last_activity": "2025-09-29T14:02:05-07:00"
+        },
+        {
+            "name": "Musmé Tiburcio",
+            "email": "musmeaudirac@gmail.com",
+            "phone": "5.22293E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, creetelo_alumnos_grupo_8_jun_24_hotmart, espanol, hotmart, reto 21 dias, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:58:12-07:00",
+            "last_activity": "2025-10-01T03:34:11-07:00"
+        },
+        {
+            "name": "Miryam Salazar-heyman",
+            "email": "msalazar360@gmail.com",
+            "phone": "14046606509",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, espanol, l05_leads_invitacion_evento, lm_meditación, active_subscriber, ambicion_registro, acbi_compra_vsm, creetelo_anual, business_meetup_miami_mar_2025, directorio",
+            "created": "2024-07-02T21:58:09-07:00",
+            "last_activity": "2025-09-09T09:50:10-07:00"
+        },
+        {
+            "name": "Yesenia Julissa",
+            "email": "soyjulissaalvarez@gmail.com",
+            "phone": "5.23411E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, workbook_2024-2025_esp, bj25_lead_registrada_mexico, bj25_wpp_noingresa_mexico, creetelo_mensual, bj25_compro_mensual, directorio",
+            "created": "2024-07-02T21:58:09-07:00",
+            "last_activity": "2025-09-29T14:01:56-07:00"
+        },
+        {
+            "name": "Maria isabel Morillo",
+            "email": "morillo.cmi@gmail.com",
+            "phone": "56940825069",
+            "company": "",
+            "tags": "creetelo_anual",
+            "created": "2024-07-02T21:58:08-07:00",
+            "last_activity": "2025-09-29T14:02:15-07:00"
+        },
+        {
+            "name": "Lynette",
+            "email": "lynettefontalvo@gmail.com",
+            "phone": "",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, creetelo_cancelado, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, directorio",
+            "created": "2024-07-02T21:58:06-07:00",
+            "last_activity": "2025-09-29T14:01:42-07:00"
+        },
+        {
+            "name": "Maria janeth Pereira",
+            "email": "majapereirapino@gmail.com",
+            "phone": "3.51968E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, espanol, l05_leads_invitacion_evento, reto 21 dias, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:58:01-07:00",
+            "last_activity": "2025-09-29T14:01:34-07:00"
+        },
+        {
+            "name": "Sofía Castro",
+            "email": "sofiasinfiltro@gmail.com",
+            "phone": "18436832921",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, hotmart, clase_monetizarcreetelo_oct2024, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:57:56-07:00",
+            "last_activity": "2025-09-29T14:01:05-07:00"
+        },
+        {
+            "name": "Sandra Pérez",
+            "email": "timauresp@gmail.com",
+            "phone": "5.84241E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo_alumnos_grupo_7_feb_24_regist_mn, reto nas sep2024, reto_nas_sept2024_1174, creidas_og, creetelo_ticketplate_mensual, wowfriday_plan mensual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:57:55-07:00",
+            "last_activity": "2025-09-29T14:01:41-07:00"
+        },
+        {
+            "name": "Maggi Borrero",
+            "email": "maggissewing@gmail.com",
+            "phone": "14073982754",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, workbook_2024, wowfriday_registro_nov2024, wowfriday_excreida anual, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:57:55-07:00",
+            "last_activity": "2025-09-29T14:01:26-07:00"
+        },
+        {
+            "name": "Valentina Acost",
+            "email": "valenacosta84@gmail.com",
+            "phone": "34689937867",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, newsletter_esp, wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:57:52-07:00",
+            "last_activity": "2025-10-01T09:00:37-07:00"
+        },
+        {
+            "name": "Ana María",
+            "email": "empoweredfamilyus@gmail.com",
+            "phone": "12673332291",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, newsletter_esp, reto nas sep2024, reto_nas_sept2024_1174, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:57:52-07:00",
+            "last_activity": "2025-09-29T14:01:30-07:00"
+        },
+        {
+            "name": "Sheila",
+            "email": "shenuine@gmail.com",
+            "phone": "",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-07-02T21:57:52-07:00",
+            "last_activity": "2025-09-29T14:01:26-07:00"
+        },
+        {
+            "name": "Rocio Barrios",
+            "email": "rocio_barrios@yahoo.com",
+            "phone": "16467704718",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, workbook_2024, reto nas sep2024, hotmart, reto_nas_pago_sept2024, reto_nas_sept2024_1174, creetelo_cancelado, [interno] creetelo_alumnos_general_off, wowfriday_registro_nov2024, bj25_lead_registrada_ny, bj25_wpp_noingresa_ny, active_subscriber, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:57:51-07:00",
+            "last_activity": "2025-09-29T14:02:10-07:00"
+        },
+        {
+            "name": "Rocio Guillén",
+            "email": "rocioguillenc@hotmail.com",
+            "phone": "5.25515E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, wowfriday_registro_nov2024, creetelo_anual, directorio",
+            "created": "2024-07-02T21:57:50-07:00",
+            "last_activity": "2025-09-29T14:01:05-07:00"
+        },
+        {
+            "name": "Nataly Gutiérrez",
+            "email": "natycreativecoach@gmail.com",
+            "phone": "5.73026E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, newsletter_esp, comunidad nas septiembre 2024, reto nas sep2024, reto_nas_sept2024_1174, créetelo_anual, directorio, mdt, active_subscriber, formulario_innercircle, ic_lite",
+            "created": "2024-07-02T21:57:47-07:00",
+            "last_activity": "2025-09-29T14:01:04-07:00"
+        },
+        {
+            "name": "Natalia Di maría",
+            "email": "visionbloomstudio@gmail.com",
+            "phone": "12517522998",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, creetelo_upgrade_anual, creetelo_anual",
+            "created": "2024-07-02T21:57:46-07:00",
+            "last_activity": "2025-09-29T14:02:07-07:00"
+        },
+        {
+            "name": "Thaina Lorena",
+            "email": "thainao@gmail.com",
+            "phone": "18123882933",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, espanol, workbook_2024-2025_esp, bj25_lead_registrada_mexico, bj25_wpp_noingresa_mexico, active_subscriber, ambicion_registro, creetelo_anual, upsell_acbi_creetelo, acbi_compra_vsm, directorio",
+            "created": "2024-07-02T21:57:36-07:00",
+            "last_activity": "2025-09-29T14:02:15-07:00"
+        },
+        {
+            "name": "Perla Munoz",
+            "email": "perla.munoz2022@gmail.com",
+            "phone": "41764239221",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, directorio",
+            "created": "2024-07-02T21:57:35-07:00",
+            "last_activity": "2025-09-29T14:01:04-07:00"
+        },
+        {
+            "name": "Amanda Aquino",
+            "email": "theamaquino@gmail.com",
+            "phone": "17279001462",
+            "company": "",
+            "tags": "creetelo_mensual",
+            "created": "2024-07-02T21:57:35-07:00",
+            "last_activity": "2025-10-01T19:17:01-07:00"
+        },
+        {
+            "name": "Johana Cuevas hurtado",
+            "email": "jc.ester31@gmail.com",
+            "phone": "5.84262E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, l05_leads_invitacion_evento, workbook_2024, reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, creetelo_lanzamiento_vsm_retonas, creetelo_cancelado, [interno] creetelo_alumnos_general_off, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:57:35-07:00",
+            "last_activity": "2024-11-21T08:05:25-07:00"
+        },
+        {
+            "name": "González González",
+            "email": "lesliedgg@gmail.com",
+            "phone": "50660593290",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo_alumnos_grupo_8_jun_24_hotmart, reto nas sep2024, hotmart, reto_nas_pago_sept2024, reto_nas_sept2024_1174, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, directorio, lm_meditación, espanol",
+            "created": "2024-07-02T21:57:32-07:00",
+            "last_activity": "2025-10-01T09:00:36-07:00"
+        },
+        {
+            "name": "Sareth Agostini",
+            "email": "sarethvg_13@hotmail.com",
+            "phone": "",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, wowfriday_excreida mensual, creetelo_mensual, wa-followup, wa-fu-send, directorio",
+            "created": "2024-07-02T21:57:31-07:00",
+            "last_activity": "2024-12-12T10:05:59-07:00"
+        },
+        {
+            "name": "Sara Maradey",
+            "email": "saritamara@gmail.com",
+            "phone": "4.91767E+12",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:57:31-07:00",
+            "last_activity": "2025-09-29T14:01:34-07:00"
+        },
+        {
+            "name": "Daniela Porras",
+            "email": "madans.porras@gmail.com",
+            "phone": "34671527370",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, creetelo_mensual, bj25_lead_registrada_europa, bj25_wpp_noingresa_europa, directorio",
+            "created": "2024-07-02T21:57:27-07:00",
+            "last_activity": "2025-09-29T14:01:37-07:00"
+        },
+        {
+            "name": "Monica daniela Rozo garcia",
+            "email": "tusecretaria.mr@gmail.com",
+            "phone": "5.41127E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo_alumnos_grupo_8_jun_24_hotmart, l05_leads_invitacion_evento, hotmart, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, bj25_lead_registrada_argentina, bj25_wpp_noingresa_arg, directorio, mdt, formulario_innercircle, ic_lite, creetelo_anual",
+            "created": "2024-07-02T21:57:16-07:00",
+            "last_activity": "2025-07-23T07:26:53-07:00"
+        },
+        {
+            "name": "Karla Astorino",
+            "email": "karla.astorino@gmail.com",
+            "phone": "50767656715",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelocon_abr_24, espanol, l05_leads_invitacion_evento, hotmart, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:57:15-07:00",
+            "last_activity": "2025-02-14T07:47:49-07:00"
+        },
+        {
+            "name": "Mich Poler",
+            "email": "michelle@hellofears.com",
+            "phone": "",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, workbook_2024, creidas_og, workbook_2024-2025_esp, workbook_2024-2025_eng, directorio, creetelo_anual",
+            "created": "2024-07-02T21:57:14-07:00",
+            "last_activity": "2025-09-29T14:01:03-07:00"
+        },
+        {
+            "name": "Yose Pérez",
+            "email": "yoseperezp@gmail.com",
+            "phone": "1.44778E+12",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, espanol, l05_leads_invitacion_evento, newsletter_esp, hotmart, reto nas sep2024, reto_nas_sept2024_1174, reto 21 dias, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:57:14-07:00",
+            "last_activity": "2025-09-29T14:01:17-07:00"
+        },
+        {
+            "name": "Rub Díaz",
+            "email": "rubdiazmarca@gmail.com",
+            "phone": "31616832032",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, clase_monetizarcreetelo_oct2024, bj25_lead_registrada_europa, bj25_wpp_ingresada_europa, creetelo_anual, bj25_compro_anual, directorio",
+            "created": "2024-07-02T21:57:14-07:00",
+            "last_activity": "2025-09-29T14:01:56-07:00"
+        },
+        {
+            "name": "Rossana Rodríguez",
+            "email": "rrodrigu5@hotmail.com",
+            "phone": "5.84142E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, wowfriday_registro_nov2024, wowfriday_ plan anual, creetelo_ticketplate_anual, creetelo_anual, directorio",
+            "created": "2024-07-02T21:57:13-07:00",
+            "last_activity": "2025-09-29T14:01:21-07:00"
+        },
+        {
+            "name": "Myriam Caro",
+            "email": "coachmyriamc@gmail.com",
+            "phone": "16467644391",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, wowfriday_excreida anual, creetelo_anual, wa-followup, directorio, ambicion_registro",
+            "created": "2024-07-02T21:57:12-07:00",
+            "last_activity": "2025-09-29T14:01:23-07:00"
+        },
+        {
+            "name": "Nydia Barragán",
+            "email": "nydiaba@gmail.com",
+            "phone": "18013810927",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, bj25_lead_registrada_otros(usa), bj25_wpp_noingresa_otros(usa), optin_sales, skip_email, creetelo_mensual",
+            "created": "2024-07-02T21:57:11-07:00",
+            "last_activity": "2025-09-29T14:02:15-07:00"
+        },
+        {
+            "name": "Linda Vazquez",
+            "email": "lindaenid@gmail.com",
+            "phone": "14132347000",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, reto nas sep2024, reto_nas_pago_sept2024, reto_nas_sept2024_1174, wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, bj25_lead_registrada_boston, bj25_wpp_noingresa_boston, directorio",
+            "created": "2024-07-02T21:57:10-07:00",
+            "last_activity": "2025-09-29T14:01:11-07:00"
+        },
+        {
+            "name": "Nan Corrales fallas",
+            "email": "nancy.corrales23@hotmail.com",
+            "phone": "50686692779",
+            "company": "",
+            "tags": "lm_meditación, espanol, active_subscriber, ambicion_registro, directorio, creetelo_mensual",
+            "created": "2024-07-02T21:57:09-07:00",
+            "last_activity": "2025-10-03T02:13:02-07:00"
+        },
+        {
+            "name": "Silvana Karina coria",
+            "email": "kcholisticbeauty@gmail.com",
+            "phone": "14073003469",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, bj25_lead_registrada_orlando, bj25_wpp_noingresa_orlando, kcholisticbeauty@gmail.com",
+            "created": "2024-07-02T21:57:03-07:00",
+            "last_activity": "2025-09-29T14:01:34-07:00"
+        },
+        {
+            "name": "Elimar Asuaje",
+            "email": "elimarasuaje@gmail.com",
+            "phone": "17704806220",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, espanol, l05_leads_invitacion_evento, reto 21 dias, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:56:52-07:00",
+            "last_activity": "2025-09-29T14:01:18-07:00"
+        },
+        {
+            "name": "Mayrelis Hoyer",
+            "email": "mayhoyer@gmail.com",
+            "phone": "13053702882",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - cet, creetelocon_abr_24, l05_leads_invitacion_evento, cet3, hotmart, reto nas sep2024, reto_nas_sept2024_1174, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, valentinesday_creidas_2025, directorio, cet_alumni, babyshower_may_2025",
+            "created": "2024-07-02T21:56:51-07:00",
+            "last_activity": "2025-09-29T14:01:06-07:00"
+        },
+        {
+            "name": "Sila Caufman",
+            "email": "silaesthercaufman@gmail.com",
+            "phone": "13053388205",
+            "company": "",
+            "tags": "creetelo_cancelado, creetelo_mensual",
+            "created": "2024-07-02T21:56:50-07:00",
+            "last_activity": "2025-06-26T15:13:01-07:00"
+        },
+        {
+            "name": "Karina Sanchez",
+            "email": "erannak@gmail.com",
+            "phone": "14372135058",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:56:50-07:00",
+            "last_activity": "2025-09-29T14:01:16-07:00"
+        },
+        {
+            "name": "Vanessa De la roche",
+            "email": "vansdroche@gmail.com",
+            "phone": "33751196911",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, bj25_lead_registrada_europa, bj25_wpp_noingresa_europa, creetelo_anual, bj25_compro_anual, directorio",
+            "created": "2024-07-02T21:56:47-07:00",
+            "last_activity": "2025-09-29T14:01:51-07:00"
+        },
+        {
+            "name": "Laura Mc donnell",
+            "email": "lauchismcd@gmail.com",
+            "phone": "19842922050",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, espanol, workbook_2024-2025_esp, directorio, ambicion_registro",
+            "created": "2024-07-02T21:56:46-07:00",
+            "last_activity": "2025-09-29T14:01:26-07:00"
+        },
+        {
+            "name": "Lenny Valenzuela",
+            "email": "lenny@lennyvalenzuela.com",
+            "phone": "17877024069",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, [interno] creetelo_alumnos_general_off, creidas_og, active_subscriber, créetelo_mensual",
+            "created": "2024-07-02T21:56:45-07:00",
+            "last_activity": "2025-09-29T14:02:10-07:00"
+        },
+        {
+            "name": "Lissette Rodriguez",
+            "email": "lissetterodriguezsos@gmail.com",
+            "phone": "19175786941",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, bj25_lead_registrada_ny, bj25_wpp_noingresa_ny, creetelo_anual, bj25_compro_anual, directorio",
+            "created": "2024-07-02T21:56:41-07:00",
+            "last_activity": "2025-09-29T14:01:53-07:00"
+        },
+        {
+            "name": "Jess Estalella",
+            "email": "js.estalella@gmail.com",
+            "phone": "5.42616E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, newsletter_esp, espanol, creidas_afiliadas_equipodeventa, [interno] creetelo_alumnos_general_off, creidas_og, wowfriday_mdt, mdt, creetelo_anual, directorio, ic_lite",
+            "created": "2024-07-02T21:56:21-07:00",
+            "last_activity": "2025-09-29T14:01:16-07:00"
+        },
+        {
+            "name": "Mineira Serrano",
+            "email": "dra.mineira.serrano@gmail.com",
+            "phone": "17876448608",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo_alumnos_grupo_8_jun_24_hotmart, comunidad nas septiembre 2024, reto nas sep2024, reto_nas_sept2024_1174, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, espanol, workbook_2024-2025_esp, directorio",
+            "created": "2024-07-02T21:56:16-07:00",
+            "last_activity": "2025-09-29T14:01:34-07:00"
+        },
+        {
+            "name": "Jennifer Rojas",
+            "email": "jcrojas83@gmail.com",
+            "phone": "15613566862",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, bj25_lead_registrada_miami, bj25_wpp_noingresa_miami, creetelo_mensual, bj25_compro_mensual, directorio, bonus24hs, ambicion_registro",
+            "created": "2024-07-02T21:56:02-07:00",
+            "last_activity": "2025-10-01T13:56:11-07:00"
+        },
+        {
+            "name": "Isamar Sosa",
+            "email": "isamar.model@gmail.com",
+            "phone": "34641884821",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-07-02T21:55:51-07:00",
+            "last_activity": "2025-09-29T14:01:21-07:00"
+        },
+        {
+            "name": "Fabiola Garmendia",
+            "email": "fabyfarma@yahoo.es",
+            "phone": "34600346093",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, wowfriday_excreida anual, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:55:42-07:00",
+            "last_activity": "2025-09-29T14:01:24-07:00"
+        },
+        {
+            "name": "Ariana Galue",
+            "email": "arianagalue@gmail.com",
+            "phone": "",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:55:39-07:00",
+            "last_activity": "2025-10-01T03:58:13-07:00"
+        },
+        {
+            "name": "Gabriela Rumbos",
+            "email": "gabrielarumbos@gmail.com",
+            "phone": "50670098249",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, bj25_lead_registrada_otros, bj25_wpp_noingresa_otrospaises, directorio",
+            "created": "2024-07-02T21:55:37-07:00",
+            "last_activity": "2025-09-29T14:01:12-07:00"
+        },
+        {
+            "name": "Gabi Garcia",
+            "email": "gabigarciapublicidad@gmail.com",
+            "phone": "5.84144E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, workbook_2024, bj25_lead_registrada_vzla, bj25_wpp_noingresa_vzla, creetelo_mensual, bj25_compro_mensual, ambicion_registro",
+            "created": "2024-07-02T21:55:34-07:00",
+            "last_activity": "2025-09-29T14:02:06-07:00"
+        },
+        {
+            "name": "Pappe Pappe",
+            "email": "deborahdelcorral@gmail.com",
+            "phone": "4.91762E+12",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo_alumnos_grupo_6_bf_nov_23_regist_mn, espanol, l05_leads_invitacion_evento, creidas_og, bj25_lead_registrada_europa, bj25_wpp_ingresada_europa, bj25_lead_registrada_miami, bj25_wpp_noingresa_miami, creetelo_anual, directorio, irremplazable_barcelona_mayo2025, lm_meditación",
+            "created": "2024-07-02T21:55:27-07:00",
+            "last_activity": "2025-09-29T14:01:49-07:00"
+        },
+        {
+            "name": "Carolina Dorrego",
+            "email": "info@carolinadorregoplus.com",
+            "phone": "",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, directorio",
+            "created": "2024-07-02T21:55:26-07:00",
+            "last_activity": "2025-09-29T14:01:46-07:00"
+        },
+        {
+            "name": "Frelenys Amarayca españa gonzález",
+            "email": "frele_92@hotmail.com",
+            "phone": "5.84244E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:55:22-07:00",
+            "last_activity": "2025-09-29T14:01:15-07:00"
+        },
+        {
+            "name": "Flavi Chabarekh",
+            "email": "flavita5@hotmail.com",
+            "phone": "15514510080",
+            "company": "",
+            "tags": "creetelo_mensual, bj25_lead_registrada_ny, bj25_wpp_noingresa_ny, directorio, ic_formsubmitted_ig",
+            "created": "2024-07-02T21:55:22-07:00",
+            "last_activity": "2025-09-29T14:01:49-07:00"
+        },
+        {
+            "name": "Filipa Tavares",
+            "email": "filipa@happypartystudio.com",
+            "phone": "34679806979",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, clase_monetizarcreetelo_oct2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-07-02T21:55:18-07:00",
+            "last_activity": "2025-01-30T15:23:02-07:00"
+        },
+        {
+            "name": "Edith Rueda",
+            "email": "edith_rueda68@yahoo.es",
+            "phone": "5.8412E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, hotmart, reto nas sep2024, reto_nas_sept2024_1174, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_ticketplate_mensual, creetelo_mensual, espanol, workbook_2024-2025_esp, directorio",
+            "created": "2024-07-02T21:55:11-07:00",
+            "last_activity": "2025-09-29T14:01:23-07:00"
+        },
+        {
+            "name": "Carilu Torres",
+            "email": "carilu.torres@gmail.com",
+            "phone": "17874487946",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo_alumnos_grupo_8_jun_24_hotmart, hotmart, [interno] creetelo_alumnos_general_off, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:54:57-07:00",
+            "last_activity": "2025-09-29T14:01:05-07:00"
+        },
+        {
+            "name": "Gaby Rodriguez",
+            "email": "gaby@bygabyrod.com",
+            "phone": "19293043110",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, hotmart, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, directorio, formulario_innercircle, ic_agendaentrevista",
+            "created": "2024-07-02T21:54:43-07:00",
+            "last_activity": "2025-09-29T14:01:01-07:00"
+        },
+        {
+            "name": "Giovanna Fernández",
+            "email": "gioferluk@gmail.com",
+            "phone": "59894191375",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:54:37-07:00",
+            "last_activity": "2025-09-29T14:01:10-07:00"
+        },
+        {
+            "name": "Claudia Ardón @claueardon",
+            "email": "claudia.e.ardon@gmail.com",
+            "phone": "1.35192E+12",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, espanol, l05_leads_invitacion_evento, hotmart, reto nas sep2024, reto_nas_sept2024_1174, creetelo_alumnos_grupo_8_jun_24_hotmart, reto 21 dias, [interno] creetelo_alumnos_general_off, creidas_og, wowfriday_ plan anual, creetelo_anual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:54:34-07:00",
+            "last_activity": "2025-09-29T14:01:37-07:00"
+        },
+        {
+            "name": "Diana Carolina",
+            "email": "dianac_rmesino@hotmail.com",
+            "phone": "34608607941",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, creetelo - reto 21 días, espanol, l05_leads_invitacion_evento, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, wa-followup, directorio",
+            "created": "2024-07-02T21:54:33-07:00",
+            "last_activity": "2025-09-29T14:01:17-07:00"
+        },
+        {
+            "name": "Katrins Haidy",
+            "email": "arvelohaidy@gmail.com",
+            "phone": "5.84242E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, ambicion_registro, acbi_compra_vsm, creetelo_anual, upsell_acbi_creetelo, skip_email, acbi_bonus",
+            "created": "2024-07-02T21:54:33-07:00",
+            "last_activity": "2025-09-29T14:02:11-07:00"
+        },
+        {
+            "name": "Cristina Costanzo",
+            "email": "cristina@grounding-agency.com",
+            "phone": "17865476626",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, newsletter_esp, creetelo_mensual, bj25_lead_registrada_texas, bj25_wpp_noingresa_texas, directorio, formulario_innercircle, ic_agendaentrevista",
+            "created": "2024-07-02T21:54:25-07:00",
+            "last_activity": "2025-09-29T14:02:06-07:00"
+        },
+        {
+            "name": "Astrid Gonzalez",
+            "email": "aspid27@gmail.com",
+            "phone": "16145972978",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, hotmart, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:54:12-07:00",
+            "last_activity": "2025-09-29T14:01:12-07:00"
+        },
+        {
+            "name": "Male Guerra",
+            "email": "asesoriasinfiltros@gmail.com",
+            "phone": "3.51932E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, wowfriday_registro_nov2024, wowfriday_excreida mensual, creetelo_mensual, directorio",
+            "created": "2024-07-02T21:54:11-07:00",
+            "last_activity": "2025-09-29T14:01:40-07:00"
+        },
+        {
+            "name": "Beatriz Rintelen",
+            "email": "bearintelen@gmail.com",
+            "phone": "5.84243E+11",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, workbook_2024, reto nas sep2024, reto_nas_sept2024_1174, [interno] creetelo_alumnos_general_off, creidas_og, creetelo_anual, wa-followup, directorio, lm_meditación, espanol",
+            "created": "2024-07-02T21:54:02-07:00",
+            "last_activity": "2025-09-29T14:01:30-07:00"
+        },
+        {
+            "name": "Andrea Saavedra",
+            "email": "mujeraerea@gmail.com",
+            "phone": "56999964745",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, l05_leads_invitacion_evento, bj25_lead_registrada_chile, bj25_wpp_noingresa_chile, creetelo_mensual, bj25_compro_mensual, wowfriday_registro_nov2024, espanol, workbook_2024-2025_esp",
+            "created": "2024-07-02T21:53:58-07:00",
+            "last_activity": "2025-09-29T14:02:06-07:00"
+        },
+        {
+            "name": "Aminta",
+            "email": "amintagutierrez10@gmail.com",
+            "phone": "50661278000",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, wowfriday_registro_nov2024, wowfriday_excreida anual, creetelo_anual, wa-followup, directorio",
+            "created": "2024-07-02T21:53:55-07:00",
+            "last_activity": "2025-09-29T14:01:14-07:00"
+        },
+        {
+            "name": "Beatriz Chavez",
+            "email": "betichikapromotions@gmail.com",
+            "phone": "17133057177",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, clase_monetizarcreetelo_oct2024, wowfriday_registro_nov2024, wowfriday_plan mensual, creetelo_mensual, wa-followup, créetelo_mensual, bj25_lead_registrada_texas, bj25_wpp_noingresa_texas, directorio, ambicion_registro",
+            "created": "2024-07-02T21:53:54-07:00",
+            "last_activity": "2025-09-29T14:01:28-07:00"
+        },
+        {
+            "name": "Carla Blasini",
+            "email": "carla_blasini@hotmail.com",
+            "phone": "34666291676",
+            "company": "",
+            "tags": "migration_ac_7-2-2024, espanol, l05_leads_invitacion_evento, wowfriday_registro_nov2024, creetelo_mensual, bj25_compro_mensual, irremplazable_barcelona_mayo2025",
+            "created": "2024-07-02T21:53:50-07:00",
+            "last_activity": "2025-09-29T14:02:07-07:00"
+        }
+    ]
+}

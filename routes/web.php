@@ -122,6 +122,24 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
             Route::get('/subscriptions', [BaremetricsController::class, 'getSubscriptions'])->name('subscriptions');
         });
     });
+
+    // Rutas para Comparaciones GHL vs Baremetrics
+    Route::prefix('ghl-comparison')->name('ghl-comparison.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\GHLComparisonController::class, 'index'])->name('index');
+        Route::get('/create', [App\Http\Controllers\Admin\GHLComparisonController::class, 'create'])->name('create');
+        Route::post('/', [App\Http\Controllers\Admin\GHLComparisonController::class, 'store'])->name('store');
+        Route::get('/{comparison}', [App\Http\Controllers\Admin\GHLComparisonController::class, 'show'])->name('show');
+        Route::get('/{comparison}/processing', [App\Http\Controllers\Admin\GHLComparisonController::class, 'processing'])->name('processing');
+        Route::post('/{comparison}/start-processing', [App\Http\Controllers\Admin\GHLComparisonController::class, 'startProcessing'])->name('start-processing');
+        Route::get('/{comparison}/progress', [App\Http\Controllers\Admin\GHLComparisonController::class, 'getProgress'])->name('progress');
+        Route::get('/{comparison}/missing-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'missingUsers'])->name('missing-users');
+        Route::post('/{comparison}/import-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importUsers'])->name('import-users');
+        Route::post('/{comparison}/import-all-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importAllUsers'])->name('import-all-users');
+        Route::post('/missing-users/{user}/retry-import', [App\Http\Controllers\Admin\GHLComparisonController::class, 'retryImport'])->name('retry-import');
+        Route::post('/missing-users/{user}/import-with-plan', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importUserWithPlan'])->name('import-with-plan');
+        Route::get('/{comparison}/download-missing-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'downloadMissingUsers'])->name('download-missing-users');
+        Route::delete('/{comparison}', [App\Http\Controllers\Admin\GHLComparisonController::class, 'destroy'])->name('destroy');
+    });
 });
 
 Route::prefix('gohighlevel')->middleware(['web'])->group(function () {
