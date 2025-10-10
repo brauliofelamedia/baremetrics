@@ -8,6 +8,7 @@ use App\Models\ComparisonRecord;
 use App\Models\MissingUser;
 use App\Services\BaremetricsService;
 use App\Services\GHLComparisonService;
+use App\Services\GoHighLevelService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -17,11 +18,16 @@ class GHLComparisonController extends Controller
 {
     protected $baremetricsService;
     protected $comparisonService;
+    protected $ghlService;
 
-    public function __construct(BaremetricsService $baremetricsService, GHLComparisonService $comparisonService)
-    {
+    public function __construct(
+        BaremetricsService $baremetricsService, 
+        GHLComparisonService $comparisonService,
+        GoHighLevelService $ghlService
+    ) {
         $this->baremetricsService = $baremetricsService;
         $this->comparisonService = $comparisonService;
+        $this->ghlService = $ghlService;
     }
 
     /**
@@ -266,6 +272,318 @@ class GHLComparisonController extends Controller
 
             return back()->with('error', 'Error en la importación masiva: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Importar todos los usuarios faltantes con plan y suscripción
+     */
+    public function importAllUsersWithPlan(ComparisonRecord $comparison, Request $request)
+    {
+        try {
+            // Configurar entorno según la configuración actual
+            config(['services.baremetrics.environment' => config('services.baremetrics.environment', 'production')]);
+            $this->baremetricsService->reinitializeConfiguration();
+            
+            // Obtener el sourceId
+            $sourceId = $this->baremetricsService->getGHLSourceId();
+            
+            if (!$sourceId) {
+                return back()->with('error', 'No se pudo obtener el source ID de Baremetrics.');
+            }
+
+            // Obtener todos los planes disponibles en Baremetrics
+            $plansResponse = $this->baremetricsService->getPlans($sourceId);
+            $availablePlans = [];
+            $planAmounts = []; // Guardar también los amounts
+            
+            if (isset($plansResponse['plans']) && is_array($plansResponse['plans'])) {
+                foreach ($plansResponse['plans'] as $plan) {
+                    // Guardar planes normalizando el nombre
+                    $normalizedName = strtolower(str_replace(['é'], ['e'], $plan['name']));
+                    $availablePlans[$normalizedName] = $plan['oid'];
+                    
+                    // Guardar el amount del plan (tomamos el primer amount disponible)
+                    if (isset($plan['amounts']) && is_array($plan['amounts']) && count($plan['amounts']) > 0) {
+                        $planAmounts[$plan['oid']] = $plan['amounts'][0]['amount'];
+                    }
+                }
+            }
+
+            Log::info('Planes disponibles en Baremetrics', [
+                'total' => count($availablePlans),
+                'planes' => $availablePlans,
+                'amounts' => $planAmounts
+            ]);
+
+            if (empty($availablePlans)) {
+                return back()->with('error', 'No hay planes disponibles en Baremetrics. Crea los planes primero.');
+            }
+
+            // Obtener límite de usuarios (para pruebas)
+            $limit = $request->input('limit', null);
+            
+            $query = $comparison->pendingMissingUsers();
+            
+            if ($limit) {
+                $query->limit($limit);
+            }
+            
+            $pendingUsers = $query->get();
+            
+            if ($pendingUsers->isEmpty()) {
+                return back()->with('info', 'No hay usuarios pendientes de importar.');
+            }
+
+            Log::info('=== INICIANDO IMPORTACIÓN MASIVA CON PLAN ===', [
+                'comparison_id' => $comparison->id,
+                'total_usuarios' => $pendingUsers->count(),
+                'limit' => $limit,
+                'environment' => config('services.baremetrics.environment'),
+                'source_id' => $sourceId
+            ]);
+
+            $imported = 0;
+            $failed = 0;
+            $errors = [];
+
+            foreach ($pendingUsers as $index => $user) {
+                try {
+                    $userIndex = $index + 1;
+                    
+                    Log::info("Procesando usuario #{$userIndex}/{$pendingUsers->count()}", [
+                        'email' => $user->email,
+                        'user_id' => $user->id
+                    ]);
+                    
+                    $user->markAsImporting();
+                    
+                    // Obtener el plan tag de los tags del usuario
+                    $planTag = $this->findPlanTag($user->tags);
+                    
+                    if (!$planTag) {
+                        throw new \Exception('No se pudo determinar el plan del cliente. Tags: ' . $user->tags);
+                    }
+
+                    // Buscar el OID real del plan en Baremetrics
+                    if (!isset($availablePlans[$planTag])) {
+                        throw new \Exception("El plan '{$planTag}' no existe en Baremetrics. Planes disponibles: " . implode(', ', array_keys($availablePlans)));
+                    }
+
+                    $planOid = $availablePlans[$planTag];
+
+                    Log::info('Plan identificado', [
+                        'plan_nombre' => $planTag,
+                        'plan_oid' => $planOid,
+                        'email' => $user->email
+                    ]);
+
+                    // Crear cliente
+                    $unique = str_replace('.', '', uniqid('', true));
+                    $oid = 'ghl_' . $unique;
+                    
+                    $customerCreate = [
+                        'email' => $user->email,
+                        'name' => $user->name,
+                        'oid' => $oid,
+                    ];
+
+                    Log::info('Creando cliente en Baremetrics', ['oid' => $oid, 'email' => $user->email]);
+                    
+                    $customerData = $this->baremetricsService->createCustomer($customerCreate, $sourceId);
+
+                    if (!$customerData) {
+                        throw new \Exception('Error creando el cliente');
+                    }
+
+                    Log::info('Cliente creado exitosamente', [
+                        'customer_id' => $customerData['id'] ?? 'N/A',
+                        'email' => $user->email
+                    ]);
+
+                    // Crear suscripción
+                    $subscriptionOid = 'ghl_sub_' . str_replace('.', '', uniqid('', true));
+                    $startedAt = now()->timestamp;
+                    
+                    $subscriptionData = [
+                        'oid' => $subscriptionOid,
+                        'customer_oid' => $oid,
+                        'plan_oid' => $planOid, // Usar el OID real del plan
+                        'status' => 'active',
+                        'started_at' => $startedAt,
+                        'quantity' => 1, // Cantidad de suscripciones
+                    ];
+                    
+                    // Agregar el amount si está disponible
+                    if (isset($planAmounts[$planOid])) {
+                        $subscriptionData['amount'] = $planAmounts[$planOid];
+                    }
+
+                    Log::info('Creando suscripción en Baremetrics', array_merge(['email' => $user->email], $subscriptionData));
+
+                    $subscription = $this->baremetricsService->createSubscription($subscriptionData, $sourceId);
+
+                    if (!$subscription) {
+                        Log::warning('Cliente creado pero falló la creación de la suscripción', ['email' => $user->email]);
+                    } else {
+                    Log::info('Suscripción creada exitosamente', [
+                        'subscription_id' => $subscription['id'] ?? 'N/A',
+                        'email' => $user->email
+                    ]);
+                }
+
+                // Actualizar custom fields desde GHL
+                try {
+                    Log::info('Obteniendo custom fields desde GHL', ['email' => $user->email]);
+                    
+                    $ghlContact = $this->ghlService->getContacts($user->email);
+                    
+                    if ($ghlContact && isset($ghlContact['contacts']) && !empty($ghlContact['contacts'])) {
+                        $contact = $ghlContact['contacts'][0];
+                        $customFields = collect($contact['customFields'] ?? []);
+                        
+                        // Obtener información de suscripción de GHL
+                        $ghlSubscription = $this->ghlService->getSubscriptionStatusByContact($contact['id']);
+                        $subscriptionStatus = $ghlSubscription['status'] ?? 'active';
+                        $couponCode = $ghlSubscription['couponCode'] ?? null;
+                        
+                        // Preparar datos de custom fields
+                        $ghlData = [
+                            'relationship_status' => $customFields->firstWhere('id', '1fFJJsONHbRMQJCstvg1')['value'] ?? null,
+                            'community_location' => $customFields->firstWhere('id', 'q3BHfdxzT2uKfNO3icXG')['value'] ?? null,
+                            'country' => $contact['country'] ?? null,
+                            'engagement_score' => $customFields->firstWhere('id', 'j175N7HO84AnJycpUb9D')['value'] ?? null,
+                            'has_kids' => $customFields->firstWhere('id', 'xy0zfzMRFpOdXYJkHS2c')['value'] ?? null,
+                            'state' => $contact['state'] ?? null,
+                            'location' => $contact['city'] ?? null,
+                            'zodiac_sign' => $customFields->firstWhere('id', 'JuiCbkHWsSc3iKfmOBpo')['value'] ?? null,
+                            'subscriptions' => $subscriptionStatus,
+                            'coupon_code' => $couponCode,
+                            'GHL: Migrate GHL' => 'true' // Marcar como migrado desde GHL
+                        ];
+                        
+                        Log::info('Actualizando custom fields en Baremetrics', [
+                            'email' => $user->email,
+                            'oid' => $oid,
+                            'fields_count' => count(array_filter($ghlData, fn($v) => $v !== null))
+                        ]);
+                        
+                        $updateResult = $this->baremetricsService->updateCustomerAttributes($oid, $ghlData);
+                        
+                        if ($updateResult) {
+                            Log::info('Custom fields actualizados exitosamente', ['email' => $user->email]);
+                        } else {
+                            Log::warning('No se pudieron actualizar los custom fields', ['email' => $user->email]);
+                        }
+                    } else {
+                        Log::warning('No se encontró el contacto en GHL', ['email' => $user->email]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error actualizando custom fields desde GHL', [
+                        'email' => $user->email,
+                        'error' => $e->getMessage()
+                    ]);
+                    // No lanzar excepción, el cliente ya fue creado exitosamente
+                }
+
+                // Marcar como importado y guardar el OID
+                $user->update([
+                    'import_status' => 'imported',
+                    'baremetrics_customer_id' => $oid,
+                    'imported_at' => now(),
+                    'import_error' => null,
+                    'import_notes' => "Importado con plan: {$planTag} (OID: {$planOid})" . ($subscription ? ' - Suscripción creada' : ' - Sin suscripción')
+                ]);                    $imported++;
+
+                    Log::info('Usuario importado exitosamente', [
+                        'email' => $user->email,
+                        'oid' => $oid,
+                        'plan' => $planTag,
+                        'has_subscription' => !empty($subscription)
+                    ]);
+
+                    // Pausa pequeña entre importaciones
+                    usleep(200000); // 200ms
+
+                } catch (\Exception $e) {
+                    $failed++;
+                    $errorMsg = "Error importando {$user->email}: {$e->getMessage()}";
+                    $errors[] = $errorMsg;
+                    
+                    $user->markAsFailed($e->getMessage());
+                    
+                    Log::error('Error importando usuario', [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                }
+            }
+
+            Log::info('=== IMPORTACIÓN MASIVA COMPLETADA ===', [
+                'comparison_id' => $comparison->id,
+                'total_procesados' => $pendingUsers->count(),
+                'importados' => $imported,
+                'fallidos' => $failed
+            ]);
+
+            $message = "Importación completada: {$imported} usuarios importados con plan y suscripción";
+            if ($failed > 0) {
+                $message .= ", {$failed} usuarios fallaron";
+            }
+
+            return back()->with('success', $message)->with('import_details', [
+                'imported' => $imported,
+                'failed' => $failed,
+                'errors' => $errors
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error en importación masiva con plan', [
+                'comparison_id' => $comparison->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->with('error', 'Error en la importación masiva: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Encontrar el plan tag en los tags del usuario
+     */
+    private function findPlanTag($tagsString)
+    {
+        if (empty($tagsString)) {
+            return null;
+        }
+
+        $tags = explode(',', $tagsString);
+        $normalizedTags = array_map(function($tag) {
+            return strtolower(trim($tag));
+        }, $tags);
+
+        $planTags = [
+            'creetelo_mensual',
+            'créetelo_mensual',
+            'creetelo_anual',
+            'créetelo_anual'
+        ];
+
+        foreach ($planTags as $planTag) {
+            $normalizedPlanTag = strtolower($planTag);
+            if (in_array($normalizedPlanTag, $normalizedTags)) {
+                // Remover acentos
+                $planTagSinAcentos = str_replace(
+                    ['é'],
+                    ['e'],
+                    $normalizedPlanTag
+                );
+                return $planTagSinAcentos;
+            }
+        }
+
+        return null;
     }
 
     /**

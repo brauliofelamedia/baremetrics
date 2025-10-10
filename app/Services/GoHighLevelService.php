@@ -720,12 +720,6 @@ class GoHighLevelService
     }
 
     /**
-     * Get subscription data for a contact by ID
-     *
-     * @param string $contactId The GHL contact ID
-     * @return array|null The subscription information including status and details
-     */
-    /**
      * Get subscription data for a contact by email
      *
      * @param string $email The contact's email address

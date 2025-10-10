@@ -108,6 +108,13 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/users', [BaremetricsController::class, 'getUsers'])->name('users');
         Route::get('/config', [BaremetricsController::class, 'getConfig'])->name('config');
         Route::get('/create/customer', [BaremetricsController::class, 'createCustomer'])->name('create.customer');
+        Route::post('/check-email', [BaremetricsController::class, 'checkEmailExists'])->name('check.email');
+        // Gestión de usuarios fallidos
+        Route::get('/failed-users', [BaremetricsController::class, 'showFailedUsers'])->name('failed-users');
+        Route::post('/delete-failed-users', [BaremetricsController::class, 'deleteFailedUsers'])->name('delete-failed-users');
+        // Eliminar usuarios por plan específico
+        Route::get('/delete-users-by-plan', [BaremetricsController::class, 'showDeleteUsersByPlan'])->name('delete-users-by-plan.show');
+        Route::post('/delete-users-by-plan', [BaremetricsController::class, 'deleteUsersByPlan'])->name('delete-users-by-plan');
         // Página para ejecutar la actualización de campos desde GHL
         Route::get('/update-fields', [BaremetricsController::class, 'showUpdateFields'])->name('update-fields');
         // Inicia el proceso en background (dispara un comando Artisan)
@@ -121,6 +128,10 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
             Route::get('/customers', [BaremetricsController::class, 'getCustomers'])->name('customers');
             Route::get('/subscriptions', [BaremetricsController::class, 'getSubscriptions'])->name('subscriptions');
         });
+
+        // Ruta para crear planes de prueba en sandbox
+        Route::get('sandbox/createPlan', [BaremetricsController::class, 'createPlanSandbox'])->name('create.plan.sandbox');
+        Route::get('sandbox/createCustomer', [BaremetricsController::class, 'createCustomerSandbox'])->name('create.customer.sandbox');
     });
 
     // Rutas para Comparaciones GHL vs Baremetrics
@@ -135,6 +146,7 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::get('/{comparison}/missing-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'missingUsers'])->name('missing-users');
         Route::post('/{comparison}/import-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importUsers'])->name('import-users');
         Route::post('/{comparison}/import-all-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importAllUsers'])->name('import-all-users');
+        Route::post('/{comparison}/import-all-users-with-plan', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importAllUsersWithPlan'])->name('import-all-users-with-plan');
         Route::post('/missing-users/{user}/retry-import', [App\Http\Controllers\Admin\GHLComparisonController::class, 'retryImport'])->name('retry-import');
         Route::post('/missing-users/{user}/import-with-plan', [App\Http\Controllers\Admin\GHLComparisonController::class, 'importUserWithPlan'])->name('import-with-plan');
         Route::post('/{comparison}/delete-imported-users', [App\Http\Controllers\Admin\GHLComparisonController::class, 'deleteImportedUsers'])->name('delete-imported-users');

@@ -992,24 +992,20 @@ class BaremetricsService
      * @param array $subscriptionData Subscription data to create
      * @return array|null
      */
-    public function createSubscription(array $subscriptionData, string $sourceId): ?array
+    public function createSubscription(array $subscription, string $sourceId): ?array
     {
         try {
-            // Ensure subscription has an OID
-            if (!isset($subscriptionData['oid'])) {
-                $subscriptionData['oid'] = 'sub_' . uniqid();
-            }
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-            ])->post($this->baseUrl . "/{$sourceId}/subscriptions", $subscriptionData);
+            ])->post($this->baseUrl . "/{$sourceId}/subscriptions", $subscription);
 
             if ($response->successful()) {
                 Log::info('Baremetrics Subscription Created Successfully', [
                     'source_id' => $sourceId,
-                    'subscription_data' => $subscriptionData,
+                    'subscription_data' => $subscription,
                     'response' => $response->json()
                 ]);
                 return $response->json();
@@ -1017,7 +1013,7 @@ class BaremetricsService
 
             Log::error('Baremetrics API Error - Create Subscription', [
                 'source_id' => $sourceId,
-                'subscription_data' => $subscriptionData,
+                'subscription_data' => $subscription,
                 'status' => $response->status(),
                 'response' => $response->body(),
             ]);
@@ -1026,7 +1022,7 @@ class BaremetricsService
         } catch (\Exception $e) {
             Log::error('Baremetrics Service Exception - Create Subscription', [
                 'source_id' => $sourceId,
-                'subscription_data' => $subscriptionData,
+                'subscription_data' => $subscription,
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

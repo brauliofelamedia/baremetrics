@@ -25,4 +25,5 @@ Route::prefix('baremetrics')->middleware(['api_key'])->group(function () {
     Route::post('plan', [BaremetricsCreateController::class, 'createPlan']);
     Route::post('subscription', [BaremetricsCreateController::class, 'createSubscription']);
     Route::post('complete-setup', [BaremetricsCreateController::class, 'createCompleteSetup']);
+    Route::post('check-email', [App\Http\Controllers\BaremetricsController::class, 'checkEmailExists']);
 });
