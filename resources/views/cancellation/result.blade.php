@@ -8,9 +8,11 @@
             background-image: none;
             background-color: #33334F;
         }
+
         .auth-card {
             padding: 0;
             max-width: 600px;
+            text-align: left;
         }
 
         .text {
@@ -56,6 +58,15 @@
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
+        }
+
+        p {
+            margin-bottom: 4px;
+        }
+
+        li {
+            line-height: 1.2em;
+            margin-bottom: 10px;
         }
 
         .subscription-result {
@@ -108,19 +119,24 @@
             margin-bottom: 20px;
             border-left: 4px solid #007bff;
         }
+
+        h4, h3 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        h3 {
+            font-size: 30px;
+            margin-bottom: 30px;
+        }
     </style>
 @endpush
 
 @section('content')
 <div class="auth-card">
     <div class="text">
-        @if($success)
-            <img src="{{ asset('assets/img/success.png') }}" alt="Success" style="width: 80px; height: 80px;">
-            <h3>¡Cancelación procesada!</h3>
-        @else
-            <img src="{{ asset('assets/img/warning.png') }}" alt="Warning" style="width: 80px; height: 80px;">
-            <h3>Cancelación procesada con problemas</h3>
-        @endif
+        <h3>¡Cancelación procesada!</h3>
     </div>
 
     <div class="result-header {{ $success ? 'success-header' : ($hasErrors ? 'warning-header' : 'error-header') }}">
@@ -130,9 +146,8 @@
     <div class="result-content">
         <!-- Resumen de la cancelación -->
         <div class="result-summary">
-            <h4><i class="bi bi-info-circle"></i> Resumen del proceso</h4>
+            <h4>Resumen del proceso</h4>
             <p><strong>Cliente:</strong> {{ $data['email'] }}</p>
-            <p><strong>ID de cliente:</strong> {{ $data['customer_id'] }}</p>
             <p><strong>Motivo:</strong> {{ $data['reason'] }}</p>
             @if($data['additional_comments'])
                 <p><strong>Comentarios:</strong> {{ $data['additional_comments'] }}</p>
@@ -140,46 +155,10 @@
             <p><strong>Suscripciones procesadas:</strong> {{ $data['subscriptions_cancelled'] }}</p>
         </div>
 
-        <!-- Detalles de cada suscripción -->
-        @if(!empty($data['cancellation_details']))
-        <div class="result-card">
-            <h4><i class="bi bi-list-check"></i> Detalles por suscripción</h4>
-            @foreach($data['cancellation_details'] as $detail)
-            <div class="subscription-result">
-                <p><strong>ID de suscripción:</strong> {{ $detail['subscription_id'] }}</p>
-
-                <div style="display: flex; gap: 20px; margin-top: 10px;">
-                    <div>
-                        <strong>Stripe:</strong>
-                        @if($detail['stripe'] === 'success')
-                            <span class="status-success">✅ Cancelada</span>
-                        @else
-                            <span class="status-error">❌ Error: {{ $detail['stripe_error'] ?? 'Desconocido' }}</span>
-                        @endif
-                    </div>
-
-                    <div>
-                        <strong>Baremetrics:</strong>
-                        @if(isset($detail['baremetrics']))
-                            @if($detail['baremetrics'] === 'success')
-                                <span class="status-success">✅ Eliminada</span>
-                            @else
-                                <span class="status-error">❌ Error: {{ $detail['baremetrics_error'] ?? 'Desconocido' }}</span>
-                            @endif
-                        @else
-                            <span class="status-warning">⚠️ No procesada</span>
-                        @endif
-                    </div>
-                </div>
-            </div>
-            @endforeach
-        </div>
-        @endif
-
         <!-- Información adicional -->
         @if($success)
         <div class="result-card" style="background-color: #d4edda; border-color: #c3e6cb;">
-            <h4><i class="bi bi-check-circle"></i> ¿Qué sucede ahora?</h4>
+            <h4>¿Qué sucede ahora?</h4>
             <ul>
                 <li>Tu suscripción ha sido cancelada y no se te cobrará en el próximo período</li>
                 <li>Podrás seguir usando el servicio hasta la fecha de finalización del período actual</li>
@@ -200,9 +179,7 @@
 
         <!-- Botón de regreso -->
         <div style="text-align: center; margin-top: 30px;">
-            <a href="{{ url('/') }}" class="btn-home">
-                🏠 Ir al inicio
-            </a>
+            <button class="btn-home" onclick="window.close();">Cerrar pestaña</button>
         </div>
     </div>
 </div>
