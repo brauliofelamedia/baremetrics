@@ -584,6 +584,9 @@ class CancellationController extends Controller
             return !empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL);
         });
         
+        // Eliminar duplicados (importante para evitar envíos múltiples)
+        $validEmails = array_unique($validEmails);
+        
         \Log::info('Correos de notificación de cancelación configurados', [
             'emails' => $validEmails,
             'total' => count($validEmails)
