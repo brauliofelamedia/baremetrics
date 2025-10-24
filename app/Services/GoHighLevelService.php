@@ -943,4 +943,74 @@ class GoHighLevelService
             throw new \Exception("Error al actualizar contacto: " . $e->getMessage());
         }
     }
+
+    /**
+     * Update custom fields for a contact
+     * 
+     * @param string $contactId
+     * @param array $customFields Array of field_id => value
+     * @return bool
+     */
+    public function updateContactCustomFields(string $contactId, array $customFields): bool
+    {
+        try {
+            $token = $this->ensureValidToken();
+            
+            // En GHL API v2, los custom fields se actualizan usando el endpoint de contacto
+            // pero con la estructura correcta en el body
+            $response = $this->client->request('PUT', "{$this->base_url}/contacts/{$contactId}", [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                    'Authorization' => "Bearer {$token}",
+                    'Version' => '2021-07-28',
+                ],
+                'json' => [
+                    'customFields' => array_map(function($fieldId, $value) {
+                        return [
+                            'id' => $fieldId,
+                            'value' => $value
+                        ];
+                    }, array_keys($customFields), $customFields)
+                ],
+            ]);
+
+            if ($response->getStatusCode() !== 200) {
+                Log::error('Error actualizando custom fields en GHL', [
+                    'status_code' => $response->getStatusCode(),
+                    'contact_id' => $contactId,
+                    'custom_fields' => $customFields
+                ]);
+                return false;
+            }
+
+            Log::info('Custom fields actualizados en GoHighLevel', [
+                'contact_id' => $contactId,
+                'custom_fields' => $customFields
+            ]);
+
+            return true;
+
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $responseBody = $e->getResponse()->getBody()->getContents();
+            $errorData = json_decode($responseBody, true);
+            
+            Log::error('Error de cliente al actualizar custom fields en GoHighLevel', [
+                'status_code' => $e->getResponse()->getStatusCode(),
+                'response_body' => $errorData,
+                'contact_id' => $contactId,
+                'custom_fields' => $customFields
+            ]);
+            
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Error al actualizar custom fields en GoHighLevel', [
+                'error' => $e->getMessage(),
+                'contact_id' => $contactId,
+                'custom_fields' => $customFields
+            ]);
+            
+            return false;
+        }
+    }
 }

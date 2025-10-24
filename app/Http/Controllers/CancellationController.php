@@ -733,110 +733,135 @@ class CancellationController extends Controller
 
         // Obtener información del cliente de la sesión primero
         $customer = session('cancellation_customer');
+        
+        // Si el email no vino en el request, intentar obtenerlo del customer
+        if (empty($email) && $customer && isset($customer['email'])) {
+            $email = $customer['email'];
+            \Log::info('Email obtenido del customer en sesión', [
+                'customer_id' => $customer_id,
+                'email' => $email
+            ]);
+        }
 
         // Verificar que el customer_id coincida
         if (!$customer || ($customer['oid'] ?? null) !== $customer_id) {
-            // Si no hay información en la sesión o no coincide, intentar buscar
+            // Si no hay información en la sesión o no coincide, buscar el email si existe
             $customer = null;
-            $activeSubscriptions = [];
-
-            try {
-                // Buscar el cliente por su OID en todas las fuentes
-                $sources = $this->baremetricsService->getSources();
-                if ($sources) {
-                    $sourceIds = [];
-                    if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
-                        $sourceIds = array_column($sources['sources'], 'id');
-                    } elseif (is_array($sources)) {
-                        $sourceIds = array_column($sources, 'id');
-                    }
-
-                    \Log::info('Buscando cliente en fuentes', [
-                        'customer_id' => $customer_id,
-                        'sources_count' => count($sourceIds)
-                    ]);
-
-                    foreach ($sourceIds as $sourceId) {
-                        // Buscar en las primeras 10 páginas para encontrar el cliente
-                        for ($page = 1; $page <= 10; $page++) {
-                            $response = $this->baremetricsService->getCustomers($sourceId, '', $page);
-                            if ($response && isset($response['customers'])) {
-                                foreach ($response['customers'] as $cust) {
-                                    if (isset($cust['oid']) && $cust['oid'] === $customer_id) {
-                                        $customer = $cust;
-                                        \Log::info('Cliente encontrado', [
-                                            'customer_id' => $customer_id,
-                                            'customer_name' => $cust['name'] ?? 'N/A',
-                                            'customer_email' => $cust['email'] ?? 'N/A',
-                                            'source_id' => $sourceId,
-                                            'page' => $page
-                                        ]);
-                                        break 3; // Salir de todos los bucles
-                                    }
-                                }
-                            } else {
-                                // Si no hay respuesta o no hay customers, salir de este source
+            
+            // Si tenemos email, buscar por email en Baremetrics
+            if ($email) {
+                \Log::info('Buscando cliente por email en Baremetrics', [
+                    'customer_id' => $customer_id,
+                    'email' => $email
+                ]);
+                
+                try {
+                    $customers = $this->baremetricsService->getCustomersByEmail($email);
+                    if (!empty($customers)) {
+                        // Buscar el que coincida con el customer_id
+                        foreach ($customers as $cust) {
+                            if (isset($cust['oid']) && $cust['oid'] === $customer_id) {
+                                $customer = $cust;
+                                \Log::info('Cliente encontrado por email', [
+                                    'customer_id' => $customer_id,
+                                    'customer_name' => $cust['name'] ?? 'N/A',
+                                    'customer_email' => $cust['email'] ?? 'N/A'
+                                ]);
                                 break;
                             }
                         }
+                        
+                        // Si no coincide exactamente, usar el primero encontrado
+                        if (!$customer && !empty($customers)) {
+                            $customer = is_array($customers) && isset($customers[0]) ? $customers[0] : $customers;
+                            \Log::info('Usando primer cliente encontrado por email', [
+                                'customer_id' => $customer_id,
+                                'found_customer_id' => $customer['oid'] ?? 'N/A'
+                            ]);
+                        }
                     }
+                } catch (\Exception $e) {
+                    \Log::error('Error buscando cliente por email: ' . $e->getMessage());
                 }
-
-                if (!$customer) {
-                    \Log::warning('Cliente no encontrado para survey', [
+            }
+            
+            // Si no se encontró por email, crear un customer básico con el customer_id
+            if (!$customer) {
+                $customer = [
+                    'oid' => $customer_id,
+                    'email' => $email,
+                    'name' => 'Usuario',
+                ];
+                \Log::info('Usando customer_id directamente (no encontrado en Baremetrics)', [
+                    'customer_id' => $customer_id
+                ]);
+            }
+            
+            // Si aún no tenemos email, intentar obtenerlo de Stripe
+            if (empty($email) && $customer_id) {
+                try {
+                    $stripeCustomer = \Stripe\Customer::retrieve($customer_id);
+                    if ($stripeCustomer && isset($stripeCustomer->email)) {
+                        $email = $stripeCustomer->email;
+                        $customer['email'] = $email;
+                        \Log::info('Email obtenido de Stripe', [
+                            'customer_id' => $customer_id,
+                            'email' => $email
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('No se pudo obtener email de Stripe', [
                         'customer_id' => $customer_id,
-                        'email' => $email
+                        'error' => $e->getMessage()
                     ]);
                 }
-            } catch (\Exception $e) {
-                \Log::error('Error obteniendo datos para cancelación: ' . $e->getMessage(), [
-                    'customer_id' => $customer_id,
-                    'email' => $email,
-                    'trace' => $e->getTraceAsString()
-                ]);
             }
         }
 
+        // Obtener suscripciones activas desde Stripe directamente
+        $activeSubscriptions = [];
         try {
-            // Obtener suscripciones activas desde Stripe
-            if ($customer) {
-                $allSubscriptions = \Stripe\Subscription::all([
-                    'customer' => $customer['oid'],
-                    'status' => 'all',
-                    'limit' => 100
-                ]);
+            \Log::info('Consultando suscripciones en Stripe', [
+                'customer_id' => $customer_id
+            ]);
+            
+            $allSubscriptions = \Stripe\Subscription::all([
+                'customer' => $customer_id,  // Usar el customer_id directamente
+                'status' => 'all',
+                'limit' => 100
+            ]);
 
-                foreach ($allSubscriptions->data as $subscription) {
-                    if ($subscription->status === 'active' || $subscription->status === 'trialing') {
-                        $plan = [
-                            'oid' => $subscription->plan->id,
-                            'name' => $subscription->plan->nickname ?? 'Plan ' . $subscription->plan->amount/100 . ' ' . strtoupper($subscription->plan->currency),
-                            'amount' => $subscription->plan->amount/100,
-                            'currency' => strtoupper($subscription->plan->currency),
-                            'interval' => $subscription->plan->interval,
-                            'interval_count' => $subscription->plan->interval_count
-                        ];
+            foreach ($allSubscriptions->data as $subscription) {
+                if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                    $plan = [
+                        'oid' => $subscription->plan->id,
+                        'name' => $subscription->plan->nickname ?? 'Plan ' . $subscription->plan->amount/100 . ' ' . strtoupper($subscription->plan->currency),
+                        'amount' => $subscription->plan->amount/100,
+                        'currency' => strtoupper($subscription->plan->currency),
+                        'interval' => $subscription->plan->interval,
+                        'interval_count' => $subscription->plan->interval_count
+                    ];
 
-                        $activeSubscriptions[] = [
-                            'subscription' => $subscription,
-                            'plan' => $plan,
-                            'customer_id' => $customer['oid'],
-                            'subscription_id' => $subscription->id,
-                            'status' => $subscription->status,
-                            'current_period_start' => $subscription->current_period_start,
-                            'current_period_end' => $subscription->current_period_end
-                        ];
-                    }
+                    $activeSubscriptions[] = [
+                        'subscription' => $subscription,
+                        'plan' => $plan,
+                        'customer_id' => $customer_id,
+                        'subscription_id' => $subscription->id,
+                        'status' => $subscription->status,
+                        'current_period_start' => $subscription->current_period_start,
+                        'current_period_end' => $subscription->current_period_end
+                    ];
                 }
-
-                \Log::info('Suscripciones encontradas', [
-                    'customer_id' => $customer_id,
-                    'subscriptions_count' => count($activeSubscriptions)
-                ]);
             }
 
+            \Log::info('Suscripciones encontradas en Stripe', [
+                'customer_id' => $customer_id,
+                'subscriptions_count' => count($activeSubscriptions),
+                'all_subscriptions_count' => count($allSubscriptions->data)
+            ]);
+
         } catch (\Exception $e) {
-            \Log::error('Error obteniendo datos para cancelación: ' . $e->getMessage(), [
+            \Log::error('Error obteniendo suscripciones de Stripe: ' . $e->getMessage(), [
                 'customer_id' => $customer_id,
                 'email' => $email,
                 'trace' => $e->getTraceAsString()
@@ -868,6 +893,143 @@ class CancellationController extends Controller
                 'success' => false,
                 'message' => 'Error al guardar la información del survey: ' . $e->getMessage()
             ], 500);
+        }
+
+        // Actualizar custom fields en Baremetrics con el motivo y comentarios de cancelación
+        try {
+            \Log::info('Actualizando custom fields en Baremetrics', [
+                'customer_id' => $customer_id,
+                'reason' => $reason,
+                'has_comments' => !empty($additional_comments)
+            ]);
+            
+            $baremetricsData = [
+                'cancellation_reason' => $reason,
+            ];
+            
+            if (!empty($additional_comments)) {
+                $baremetricsData['cancellation_comments'] = $additional_comments;
+            }
+            
+            $updateResult = $this->baremetricsService->updateCustomerAttributes($customer_id, $baremetricsData);
+            
+            if ($updateResult) {
+                \Log::info('Custom fields de Baremetrics actualizados exitosamente', [
+                    'customer_id' => $customer_id,
+                    'updated_fields' => array_keys($baremetricsData)
+                ]);
+            } else {
+                \Log::warning('No se pudieron actualizar los custom fields en Baremetrics', [
+                    'customer_id' => $customer_id
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error actualizando custom fields en Baremetrics: ' . $e->getMessage(), [
+                'customer_id' => $customer_id,
+                'reason' => $reason,
+                'trace' => $e->getTraceAsString()
+            ]);
+            // No detenemos el flujo si falla la actualización de Baremetrics
+        }
+
+        // Registrar el motivo de cancelación en Barecancel Insights
+        try {
+            \Log::info('Intentando registrar motivo en Barecancel Insights', [
+                'customer_id' => $customer_id,
+                'reason' => $reason
+            ]);
+            
+            $barecancelResult = $this->baremetricsService->recordCancellationReason(
+                $customer_id, 
+                $reason, 
+                $additional_comments
+            );
+            
+            if ($barecancelResult) {
+                \Log::info('Motivo de cancelación registrado en Barecancel', [
+                    'customer_id' => $customer_id,
+                    'reason' => $reason,
+                    'barecancel_response' => $barecancelResult
+                ]);
+            } else {
+                \Log::warning('No se pudo registrar el motivo en Barecancel (puede que la API no esté disponible)', [
+                    'customer_id' => $customer_id,
+                    'reason' => $reason
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error registrando motivo en Barecancel: ' . $e->getMessage(), [
+                'customer_id' => $customer_id,
+                'reason' => $reason,
+                'trace' => $e->getTraceAsString()
+            ]);
+            // No detenemos el flujo si falla el registro en Barecancel
+        }
+
+        // Actualizar el motivo de cancelación en GoHighLevel
+        if ($email) {
+            try {
+                \Log::info('Intentando actualizar motivo en GHL', [
+                    'customer_id' => $customer_id,
+                    'email' => $email,
+                    'reason' => $reason
+                ]);
+                
+                // Buscar el contacto en GHL por email
+                $ghlService = app(\App\Services\GoHighLevelService::class);
+                $ghlContact = $ghlService->getContactsByExactEmail($email);
+                
+                if (empty($ghlContact['contacts'])) {
+                    // Intentar con búsqueda contains
+                    $ghlContact = $ghlService->getContacts($email);
+                }
+                
+                if (!empty($ghlContact['contacts'])) {
+                    $contactId = $ghlContact['contacts'][0]['id'];
+                    
+                    // Preparar los custom fields para GHL
+                    $customFields = [
+                        'UhyA0ol6XoETLRA5jsZa' => $reason,  // Campo "Motivo de cancelacion"
+                    ];
+                    
+                    // Agregar comentarios si existen
+                    if (!empty($additional_comments)) {
+                        $customFields['zYi50QSDZC6eGqoRH8Zm'] = $additional_comments;  // Campo "Comentarios de cancelacion"
+                    }
+                    
+                    // Actualizar los custom fields en GHL usando el método específico
+                    $ghlResult = $ghlService->updateContactCustomFields($contactId, $customFields);
+                    
+                    if ($ghlResult) {
+                        \Log::info('Motivo de cancelación actualizado en GHL', [
+                            'customer_id' => $customer_id,
+                            'email' => $email,
+                            'contact_id' => $contactId,
+                            'reason' => $reason,
+                            'has_comments' => !empty($additional_comments)
+                        ]);
+                    } else {
+                        \Log::warning('No se pudo actualizar el motivo en GHL', [
+                            'customer_id' => $customer_id,
+                            'email' => $email,
+                            'contact_id' => $contactId
+                        ]);
+                    }
+                } else {
+                    \Log::warning('Contacto no encontrado en GHL para actualizar motivo', [
+                        'customer_id' => $customer_id,
+                        'email' => $email
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Error actualizando motivo en GHL: ' . $e->getMessage(), [
+                    'customer_id' => $customer_id,
+                    'email' => $email,
+                    'reason' => $reason,
+                    'trace' => $e->getTraceAsString()
+                ]);
+                // No detenemos el flujo si falla la actualización en GHL
+            }
         }
 
         // Cancelar suscripciones en Stripe y Baremetrics

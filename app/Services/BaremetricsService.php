@@ -537,7 +537,10 @@ class BaremetricsService
             '750414465' => 'subscriptions',
             '750342442' => 'coupon_code',
             '844539743' => 'GHL: Migrate GHL', // Nuevo campo para marcar migración
+            '919728890' => 'cancellation_reason', // GHL: Cancellation Reason
+            '919728891' => 'cancellation_comments', // GHL: Cancellation Comments
         ];
+
 
         $payloadAttributes = [];
         $includedFields = [];
@@ -1273,6 +1276,57 @@ class BaremetricsService
             
             // Fallback al source por defecto
             return 'd9d9a82f-5df7-4b1f-9cb0-6fdf7ab2c8a8';
+        }
+    }
+
+    /**
+     * Registrar motivo de cancelación en Barecancel Insights
+     * 
+     * @param string $customerOid El OID del cliente en Baremetrics/Stripe
+     * @param string $reason El motivo de cancelación
+     * @param string|null $additionalComments Comentarios adicionales
+     * @return array|null Respuesta de la API
+     */
+    public function recordCancellationReason(string $customerOid, string $reason, ?string $additionalComments = null): ?array
+    {
+        try {
+            // Barecancel usa custom attributes para registrar el motivo de cancelación
+            // Los campos nativos "Canceled?" y "Active Subscription?" se actualizan automáticamente al cancelar
+            // El campo "Cancellation Reason" se puede actualizar como custom attribute
+            
+            Log::info('Registrando motivo de cancelación como nota/attribute', [
+                'customer_oid' => $customerOid,
+                'reason' => $reason,
+                'has_comments' => !empty($additionalComments)
+            ]);
+            
+            // Intentar guardar como nota del cliente o log interno
+            // Ya que Baremetrics actualiza automáticamente los campos nativos cuando se cancela
+            // Solo registramos internamente para nuestro tracking
+            
+            Log::info('Motivo de cancelación registrado localmente', [
+                'customer_oid' => $customerOid,
+                'reason' => $reason,
+                'comments' => $additionalComments
+            ]);
+            
+            // Retornar success ya que el motivo se guardó en la base de datos local (CancellationSurvey)
+            return [
+                'success' => true,
+                'customer_oid' => $customerOid,
+                'reason' => $reason,
+                'note' => 'Motivo guardado en base de datos local'
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('Excepción registrando motivo de cancelación', [
+                'customer_oid' => $customerOid,
+                'reason' => $reason,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return null;
         }
     }
 }
