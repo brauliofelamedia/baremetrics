@@ -307,7 +307,12 @@ class BaremetricsService
             $allCustomers = [];
             // Si se pasa un sourceId, solo busca para ese source
             if ($sourceId) {
-                $url = $this->baseUrl . '/' . $sourceId . '/customers?search=' . $search . '&sort=created&page=' . $page . '&order=asc&per_page=100';
+                // Si se usa search, no agregar paginación (la API filtra directamente)
+                if (!empty($search)) {
+                    $url = $this->baseUrl . '/' . $sourceId . '/customers?search=' . urlencode($search) . '&sort=created&order=asc';
+                } else {
+                    $url = $this->baseUrl . '/' . $sourceId . '/customers?sort=created&page=' . $page . '&order=asc&per_page=100';
+                }
 
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer ' . $this->apiKey,
@@ -327,7 +332,7 @@ class BaremetricsService
 
                 return null;
             }
-            
+
             return ['customers' => $allCustomers];
 
         } catch (\Exception $e) {
@@ -445,7 +450,7 @@ class BaremetricsService
     {
         try {
             $sources = $this->getSources();
-            
+
             if (!$sources) {
                 return null;
             }
@@ -458,12 +463,8 @@ class BaremetricsService
                 $sourcesNew = $sources;
             }
 
-            // Filtrar solo fuentes de Stripe
-            $stripeSources = array_values(array_filter($sourcesNew, function ($source) {
-                return isset($source['provider']) && $source['provider'] === 'stripe';
-            }));
-
-            $sourceIds = array_values(array_filter(array_column($stripeSources, 'id'), function ($id) {
+            // Buscar en todas las fuentes disponibles usando el parámetro search de la API
+            $sourceIds = array_values(array_filter(array_column($sourcesNew, 'id'), function ($id) {
                 return !empty($id);
             }));
 
@@ -471,46 +472,34 @@ class BaremetricsService
                 return null;
             }
 
-            // Buscar en cada fuente
+            // Buscar en cada fuente usando el parámetro search (la API filtra directamente)
             foreach ($sourceIds as $sourceId) {
-                $page = 1;
-                $hasMore = true;
-                
-                while ($hasMore) {
-                    $response = $this->getCustomers($sourceId, $page);
-                    
-                    if (!$response) {
-                        break;
-                    }
+                $response = $this->getCustomers($sourceId, $email, 1);
 
-                    $customers = [];
-                    if (is_array($response) && isset($response['customers']) && is_array($response['customers'])) {
-                        $customers = $response['customers'];
-                    } elseif (is_array($response)) {
-                        $customers = $response;
-                    }
-
-                    // Buscar por email
-                    foreach ($customers as $customer) {
-                        if (isset($customer['email']) && strtolower($customer['email']) === strtolower($email)) {
-                            return [$customer]; // Devolver array con el cliente encontrado
-                        }
-                    }
-
-                    if (isset($response['meta']['pagination'])) {
-                        $pagination = $response['meta']['pagination'];
-                        $hasMore = $pagination['has_more'] ?? false;
-                    } else {
-                        $hasMore = false;
-                    }
-
-                    $page++;
-                    usleep(100000); // Pequeña pausa entre requests
+                if (!$response) {
+                    continue;
                 }
+
+                $customers = [];
+                if (is_array($response) && isset($response['customers']) && is_array($response['customers'])) {
+                    $customers = $response['customers'];
+                } elseif (is_array($response)) {
+                    $customers = $response;
+                }
+
+                // Buscar por email en los resultados filtrados
+                foreach ($customers as $customer) {
+                    if (isset($customer['email']) && strtolower($customer['email']) === strtolower($email)) {
+                        return [$customer]; // Devolver array con el cliente encontrado
+                    }
+                }
+
+                // Pequeña pausa entre requests para no sobrecargar la API
+                usleep(100000); // 100ms
             }
-            
+
             return null; // No encontrado
-            
+
         } catch (\Exception $e) {
             Log::error('Error obteniendo cliente por email de Baremetrics', [
                 'email' => $email,
@@ -518,9 +507,7 @@ class BaremetricsService
             ]);
             return null;
         }
-    }
-
-    /**
+    }    /**
      * Update customer attributes in Baremetrics
      * 
      * @param string $customerId The customer ID in Baremetrics

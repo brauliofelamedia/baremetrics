@@ -400,9 +400,36 @@ class GHLComparisonController extends Controller
                         'email' => $user->email
                     ]);
 
-                    // Crear suscripción
+                    // Obtener fecha real de GHL para la suscripción
+                    $ghlCreatedDate = null;
+                    try {
+                        Log::info('Obteniendo fecha de creación desde GHL', ['email' => $user->email]);
+                        
+                        $ghlContact = $this->ghlService->getContacts($user->email);
+                        
+                        if ($ghlContact && isset($ghlContact['contacts']) && !empty($ghlContact['contacts'])) {
+                            $contact = $ghlContact['contacts'][0];
+                            $dateAdded = $contact['dateAdded'] ?? $contact['dateCreated'] ?? null;
+                            
+                            if ($dateAdded) {
+                                $ghlCreatedDate = strtotime($dateAdded);
+                                Log::info('Fecha original encontrada en GHL', [
+                                    'email' => $user->email,
+                                    'date_ghl' => $dateAdded,
+                                    'timestamp' => $ghlCreatedDate
+                                ]);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('No se pudo obtener fecha de GHL, usando fecha actual', [
+                            'email' => $user->email,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+
+                    // Crear suscripción con fecha correcta
                     $subscriptionOid = 'ghl_sub_' . str_replace('.', '', uniqid('', true));
-                    $startedAt = now()->timestamp;
+                    $startedAt = $ghlCreatedDate ?? now()->timestamp; // Usar fecha de GHL o fecha actual como fallback
                     
                     $subscriptionData = [
                         'oid' => $subscriptionOid,
@@ -418,7 +445,11 @@ class GHLComparisonController extends Controller
                         $subscriptionData['amount'] = $planAmounts[$planOid];
                     }
 
-                    Log::info('Creando suscripción en Baremetrics', array_merge(['email' => $user->email], $subscriptionData));
+                    Log::info('Creando suscripción en Baremetrics', array_merge([
+                        'email' => $user->email,
+                        'started_at_readable' => date('Y-m-d H:i:s', $startedAt),
+                        'using_ghl_date' => $ghlCreatedDate !== null
+                    ], $subscriptionData));
 
                     $subscription = $this->baremetricsService->createSubscription($subscriptionData, $sourceId);
 
@@ -431,14 +462,10 @@ class GHLComparisonController extends Controller
                     ]);
                 }
 
-                // Actualizar custom fields desde GHL
+                // Actualizar custom fields desde GHL (reutilizando contacto ya obtenido)
                 try {
-                    Log::info('Obteniendo custom fields desde GHL', ['email' => $user->email]);
-                    
-                    $ghlContact = $this->ghlService->getContacts($user->email);
-                    
-                    if ($ghlContact && isset($ghlContact['contacts']) && !empty($ghlContact['contacts'])) {
-                        $contact = $ghlContact['contacts'][0];
+                    // Si ya tenemos el contacto de GHL de la búsqueda anterior, lo usamos
+                    if (isset($contact) && $contact) {
                         $customFields = collect($contact['customFields'] ?? []);
                         
                         // Obtener información de suscripción de GHL
@@ -475,7 +502,7 @@ class GHLComparisonController extends Controller
                             Log::warning('No se pudieron actualizar los custom fields', ['email' => $user->email]);
                         }
                     } else {
-                        Log::warning('No se encontró el contacto en GHL', ['email' => $user->email]);
+                        Log::warning('No se pudo obtener contacto de GHL para custom fields', ['email' => $user->email]);
                     }
                 } catch (\Exception $e) {
                     Log::error('Error actualizando custom fields desde GHL', [

@@ -13,11 +13,11 @@ echo "=== Eliminando últimos 5 usuarios de prueba ===\n\n";
 $subscriptions = $service->getSubscriptions($sourceId);
 
 $testUsers = [
-    ['email' => 'yuvianat.holisticcoach@gmail.com', 'oid' => 'ghl_68e9412b1a9e0329602952'],
-    ['email' => 'lizzleony@gmail.com', 'oid' => 'ghl_68e9412d4debe175881612'],
-    ['email' => 'marisolkfitbyme@gmail.com', 'oid' => 'ghl_68e9412f2521f567959733'],
-    ['email' => 'ninfa.cardozo.lopez@gmail.com', 'oid' => 'ghl_68e94130ed2ae160482805'],
-    ['email' => 'horopeza8@gmail.com', 'oid' => 'ghl_68e94132e36dd125188143']
+    ['email' => 'yuvianat.holisticcoach@gmail.com', 'oid' => 'ghl_68e942449764d782837484'],
+    ['email' => 'lizzleony@gmail.com', 'oid' => 'ghl_68e94247471ec035651007'],
+    ['email' => 'marisolkfitbyme@gmail.com', 'oid' => 'ghl_68e942494d612109512302'],
+    ['email' => 'ninfa.cardozo.lopez@gmail.com', 'oid' => 'ghl_68e9424b8a7bb602686957'],
+    ['email' => 'horopeza8@gmail.com', 'oid' => 'ghl_68e9424d75cdc095782474']
 ];
 
 $deleted = 0;

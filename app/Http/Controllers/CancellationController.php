@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\CancellationToken;
+use App\Models\CancellationSurvey;
 
 class CancellationController extends Controller
 {
@@ -152,38 +153,12 @@ class CancellationController extends Controller
 
     private function getCustomers(string $search = '')
     {
-        $sources = $this->baremetricsService->getSources();
-
-        // Normalizar la estructura: la respuesta puede venir como ['sources' => [...]]
-        $sourcesNew = [];
-        if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
-            $sourcesNew = $sources['sources'];
-        } elseif (is_array($sources)) {
-            // Si getCustomers ya devolvió directamente un array de sources
-            $sourcesNew = $sources;
+        if (empty($search)) {
+            return [];
         }
 
-        // Filtrar sólo providers 'stripe'
-        $stripeSources = array_values(array_filter($sourcesNew, function ($source) {
-            return isset($source['provider']) && $source['provider'] === 'stripe';
-        }));
-
-        // Extraer solo los IDs (filtrando vacíos)
-        $sourceIds = array_values(array_filter(array_column($stripeSources, 'id'), function ($id) {
-            return !empty($id);
-        }));
-
-        //Iteramos la lista de sources para obtener los clientes
-        $customersExtract = [];
-        foreach ($sourceIds as $sourceId) {
-            $customers = $this->baremetricsService->getCustomers($sourceId, $search);
-
-            if ($customers) {
-                $customersExtract = array_merge($customersExtract, $customers);
-            }
-        }
-        
-        return $customersExtract;
+        // Usar getCustomersByEmail para buscar en todas las fuentes
+        return $this->baremetricsService->getCustomersByEmail($search);
     }
 
     /**
@@ -370,31 +345,52 @@ class CancellationController extends Controller
     public function verifyCancellationToken(Request $request)
     {
         $token = $request->query('token', '');
-        
+
         if (empty($token)) {
             return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
         }
-        
+
         // Obtenemos el token desde la base de datos
         $tokenRecord = CancellationToken::where('token', $token)
             ->where('is_used', false)
             ->where('expires_at', '>', now())
             ->first();
-        
+
         if (!$tokenRecord) {
             return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
         }
-        
+
         $email = $tokenRecord->email;
-        
+
         // Marcamos el token como usado
         $tokenRecord->markAsUsed();
-        
+
         // También eliminamos de la caché para consistencia
         Cache::forget('cancellation_token_' . $token);
-        
-        // Redirigimos al proceso de cancelación
-        return redirect()->route('cancellation.customer.ghl', ['email' => $email]);
+
+        // Obtener el cliente usando el email
+        $customers = $this->getCustomers($email);
+
+        if (empty($customers) || !isset($customers[0])) {
+            return redirect()->route('home')->with('error', 'No se encontró información del cliente para proceder con la cancelación.');
+        }
+
+        $customer = $customers[0];
+        $customerId = $customer['oid'] ?? null;
+
+        if (!$customerId) {
+            return redirect()->route('home')->with('error', 'No se pudo obtener la identificación del cliente.');
+        }
+
+        // Almacenar información del cliente en la sesión para evitar búsquedas posteriores
+        session([
+            'cancellation_customer' => $customer,
+            'cancellation_customer_id' => $customerId,
+            'cancellation_email' => $email
+        ]);
+
+        // Redirigir directamente a la survey con los datos del cliente
+        return redirect()->route('cancellation.survey', ['customer_id' => $customerId]);
     }
 
     public function cancellationCustomerGHL(Request $request)
@@ -664,5 +660,342 @@ class CancellationController extends Controller
                 'message' => 'Error al cancelar la suscripción: ' . $e->getMessage()
             ], 500);
         }
+    }
+    
+    public function surveyCancellation($customer_id)
+    {
+        // Obtener información del cliente de la sesión (almacenada durante la verificación del token)
+        $customer = session('cancellation_customer');
+
+        // Verificar que el customer_id coincida con el de la sesión
+        if (!$customer || ($customer['oid'] ?? null) !== $customer_id) {
+            // Si no hay información en la sesión o no coincide, intentar buscar (como fallback)
+            $customer = null;
+            try {
+                // Buscar el cliente por su OID en todas las fuentes (solo como fallback)
+                $sources = $this->baremetricsService->getSources();
+                if ($sources) {
+                    $sourceIds = [];
+                    if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
+                        $sourceIds = array_column($sources['sources'], 'id');
+                    } elseif (is_array($sources)) {
+                        $sourceIds = array_column($sources, 'id');
+                    }
+
+                    foreach ($sourceIds as $sourceId) {
+                        // Buscar en las primeras 10 páginas para encontrar el cliente
+                        for ($page = 1; $page <= 10; $page++) {
+                            $response = $this->baremetricsService->getCustomers($sourceId, '', $page);
+                            if ($response && isset($response['customers'])) {
+                                foreach ($response['customers'] as $cust) {
+                                    if (isset($cust['oid']) && $cust['oid'] === $customer_id) {
+                                        $customer = $cust;
+                                        break 3; // Salir de todos los bucles
+                                    }
+                                }
+                            } else {
+                                // Si no hay respuesta o no hay customers, salir de este source
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Error obteniendo datos del cliente para survey: ' . $e->getMessage());
+            }
+        }
+
+        return view('cancellation.survey', compact('customer_id', 'customer'));
+    }
+
+    public function surveyCancellationSave(Request $request)
+    {
+        $request->validate([
+            'customer_id' => 'required|string',
+            'email' => 'nullable|email|max:255',
+            'reason' => 'required|string',
+            'additional_comments' => 'nullable|string|max:1000',
+        ]);
+
+        $customer_id = $request->input('customer_id');
+        $email = $request->input('email');
+        $reason = $request->input('reason');
+        $additional_comments = $request->input('additional_comments');
+
+        \Log::info('Procesando survey de cancelación', [
+            'customer_id' => $customer_id,
+            'email' => $email,
+            'reason' => $reason
+        ]);
+
+        // Obtener información del cliente de la sesión primero
+        $customer = session('cancellation_customer');
+
+        // Verificar que el customer_id coincida
+        if (!$customer || ($customer['oid'] ?? null) !== $customer_id) {
+            // Si no hay información en la sesión o no coincide, intentar buscar
+            $customer = null;
+            $activeSubscriptions = [];
+
+            try {
+                // Buscar el cliente por su OID en todas las fuentes
+                $sources = $this->baremetricsService->getSources();
+                if ($sources) {
+                    $sourceIds = [];
+                    if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
+                        $sourceIds = array_column($sources['sources'], 'id');
+                    } elseif (is_array($sources)) {
+                        $sourceIds = array_column($sources, 'id');
+                    }
+
+                    \Log::info('Buscando cliente en fuentes', [
+                        'customer_id' => $customer_id,
+                        'sources_count' => count($sourceIds)
+                    ]);
+
+                    foreach ($sourceIds as $sourceId) {
+                        // Buscar en las primeras 10 páginas para encontrar el cliente
+                        for ($page = 1; $page <= 10; $page++) {
+                            $response = $this->baremetricsService->getCustomers($sourceId, '', $page);
+                            if ($response && isset($response['customers'])) {
+                                foreach ($response['customers'] as $cust) {
+                                    if (isset($cust['oid']) && $cust['oid'] === $customer_id) {
+                                        $customer = $cust;
+                                        \Log::info('Cliente encontrado', [
+                                            'customer_id' => $customer_id,
+                                            'customer_name' => $cust['name'] ?? 'N/A',
+                                            'customer_email' => $cust['email'] ?? 'N/A',
+                                            'source_id' => $sourceId,
+                                            'page' => $page
+                                        ]);
+                                        break 3; // Salir de todos los bucles
+                                    }
+                                }
+                            } else {
+                                // Si no hay respuesta o no hay customers, salir de este source
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!$customer) {
+                    \Log::warning('Cliente no encontrado para survey', [
+                        'customer_id' => $customer_id,
+                        'email' => $email
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::error('Error obteniendo datos para cancelación: ' . $e->getMessage(), [
+                    'customer_id' => $customer_id,
+                    'email' => $email,
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+        }
+
+        try {
+            // Obtener suscripciones activas desde Stripe
+            if ($customer) {
+                $allSubscriptions = \Stripe\Subscription::all([
+                    'customer' => $customer['oid'],
+                    'status' => 'all',
+                    'limit' => 100
+                ]);
+
+                foreach ($allSubscriptions->data as $subscription) {
+                    if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                        $plan = [
+                            'oid' => $subscription->plan->id,
+                            'name' => $subscription->plan->nickname ?? 'Plan ' . $subscription->plan->amount/100 . ' ' . strtoupper($subscription->plan->currency),
+                            'amount' => $subscription->plan->amount/100,
+                            'currency' => strtoupper($subscription->plan->currency),
+                            'interval' => $subscription->plan->interval,
+                            'interval_count' => $subscription->plan->interval_count
+                        ];
+
+                        $activeSubscriptions[] = [
+                            'subscription' => $subscription,
+                            'plan' => $plan,
+                            'customer_id' => $customer['oid'],
+                            'subscription_id' => $subscription->id,
+                            'status' => $subscription->status,
+                            'current_period_start' => $subscription->current_period_start,
+                            'current_period_end' => $subscription->current_period_end
+                        ];
+                    }
+                }
+
+                \Log::info('Suscripciones encontradas', [
+                    'customer_id' => $customer_id,
+                    'subscriptions_count' => count($activeSubscriptions)
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Error obteniendo datos para cancelación: ' . $e->getMessage(), [
+                'customer_id' => $customer_id,
+                'email' => $email,
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+
+        // Guardar el survey en la base de datos
+        try {
+            CancellationSurvey::create([
+                'customer_id' => $customer_id,
+                'email' => $email,
+                'reason' => $reason,
+                'additional_comments' => $additional_comments,
+            ]);
+
+            \Log::info('Survey de cancelación guardado', [
+                'customer_id' => $customer_id,
+                'email' => $email,
+                'reason' => $reason
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error guardando survey de cancelación: ' . $e->getMessage(), [
+                'customer_id' => $customer_id,
+                'email' => $email,
+                'reason' => $reason
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al guardar la información del survey: ' . $e->getMessage()
+            ], 500);
+        }
+
+        // Cancelar suscripciones en Stripe y Baremetrics
+        $cancellationResults = [];
+        $hasErrors = false;
+
+        if ($customer && !empty($activeSubscriptions)) {
+            foreach ($activeSubscriptions as $subscriptionData) {
+                $subscriptionId = $subscriptionData['subscription_id'];
+
+                // Cancelar en Stripe
+                try {
+                    $stripeResult = $this->stripeService->cancelActiveSubscription($customer_id, $subscriptionId);
+                    if ($stripeResult['success']) {
+                        $cancellationResults[] = [
+                            'subscription_id' => $subscriptionId,
+                            'stripe' => 'success',
+                            'stripe_details' => $stripeResult['data']
+                        ];
+                        \Log::info('Suscripción cancelada en Stripe', [
+                            'customer_id' => $customer_id,
+                            'subscription_id' => $subscriptionId
+                        ]);
+                    } else {
+                        $cancellationResults[] = [
+                            'subscription_id' => $subscriptionId,
+                            'stripe' => 'error',
+                            'stripe_error' => $stripeResult['error']
+                        ];
+                        $hasErrors = true;
+                        \Log::error('Error cancelando suscripción en Stripe', [
+                            'customer_id' => $customer_id,
+                            'subscription_id' => $subscriptionId,
+                            'error' => $stripeResult['error']
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    $cancellationResults[] = [
+                        'subscription_id' => $subscriptionId,
+                        'stripe' => 'error',
+                        'stripe_error' => $e->getMessage()
+                    ];
+                    $hasErrors = true;
+                    \Log::error('Excepción cancelando suscripción en Stripe', [
+                        'customer_id' => $customer_id,
+                        'subscription_id' => $subscriptionId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+
+                // Cancelar en Baremetrics (si tenemos el OID de la suscripción)
+                if (isset($subscriptionData['subscription']['oid'])) {
+                    try {
+                        // Necesitamos encontrar el source_id para este cliente
+                        $sources = $this->baremetricsService->getSources();
+                        if ($sources) {
+                            $sourceIds = [];
+                            if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
+                                $sourceIds = array_column($sources['sources'], 'id');
+                            } elseif (is_array($sources)) {
+                                $sourceIds = array_column($sources, 'id');
+                            }
+
+                            // Intentar cancelar en cada source (usualmente solo hay uno)
+                            foreach ($sourceIds as $sourceId) {
+                                $baremetricsResult = $this->baremetricsService->deleteSubscription($sourceId, $subscriptionData['subscription']['oid']);
+                                if ($baremetricsResult) {
+                                    // Encontrar el resultado correspondiente y actualizar
+                                    foreach ($cancellationResults as &$result) {
+                                        if ($result['subscription_id'] === $subscriptionId) {
+                                            $result['baremetrics'] = 'success';
+                                            break;
+                                        }
+                                    }
+                                    \Log::info('Suscripción cancelada en Baremetrics', [
+                                        'customer_id' => $customer_id,
+                                        'subscription_id' => $subscriptionId,
+                                        'source_id' => $sourceId
+                                    ]);
+                                    break; // Solo necesitamos cancelar en un source
+                                }
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Encontrar el resultado correspondiente y actualizar
+                        foreach ($cancellationResults as &$result) {
+                            if ($result['subscription_id'] === $subscriptionId) {
+                                $result['baremetrics'] = 'error';
+                                $result['baremetrics_error'] = $e->getMessage();
+                                break;
+                            }
+                        }
+                        $hasErrors = true;
+                        \Log::error('Excepción cancelando suscripción en Baremetrics', [
+                            'customer_id' => $customer_id,
+                            'subscription_id' => $subscriptionId,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+            }
+        } else {
+            // No se encontró cliente o no tiene suscripciones activas
+            $hasErrors = true;
+            \Log::warning('No se pudo procesar cancelación: cliente no encontrado o sin suscripciones', [
+                'customer_id' => $customer_id,
+                'email' => $email,
+                'customer_found' => $customer ? true : false,
+                'active_subscriptions_count' => isset($activeSubscriptions) ? count($activeSubscriptions) : 0
+            ]);
+        }
+
+        // Preparar respuesta
+        if ($hasErrors) {
+            $successMessage = 'Cancelación procesada parcialmente. Algunas suscripciones pudieron no cancelarse correctamente.';
+        } else {
+            $successMessage = 'Todas las suscripciones han sido canceladas correctamente.';
+        }
+
+        return view('cancellation.result', [
+            'success' => !$hasErrors,
+            'message' => $successMessage,
+            'data' => [
+                'customer_id' => $customer_id,
+                'email' => $email,
+                'reason' => $reason,
+                'additional_comments' => $additional_comments,
+                'subscriptions_cancelled' => count($cancellationResults),
+                'cancellation_details' => $cancellationResults
+            ],
+            'hasErrors' => $hasErrors
+        ]);
     }
 }
