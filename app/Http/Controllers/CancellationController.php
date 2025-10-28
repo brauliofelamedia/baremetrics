@@ -347,7 +347,7 @@ class CancellationController extends Controller
         $token = $request->query('token', '');
 
         if (empty($token)) {
-            return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
+            return redirect()->route('cancellation.form')->with('error', 'El token de verificación es inválido o ha expirado.');
         }
 
         // Obtenemos el token desde la base de datos
@@ -357,7 +357,7 @@ class CancellationController extends Controller
             ->first();
 
         if (!$tokenRecord) {
-            return redirect()->route('home')->with('error', 'El token de verificación es inválido o ha expirado.');
+            return redirect()->route('cancellation.form')->with('error', 'El token de verificación es inválido o ha expirado.');
         }
 
         $email = $tokenRecord->email;
@@ -372,14 +372,14 @@ class CancellationController extends Controller
         $customers = $this->getCustomers($email);
 
         if (empty($customers) || !isset($customers[0])) {
-            return redirect()->route('home')->with('error', 'No se encontró información del cliente para proceder con la cancelación.');
+            return redirect()->route('cancellation.form')->with('error', 'No se encontró información del cliente para proceder con la cancelación.');
         }
 
         $customer = $customers[0];
         $customerId = $customer['oid'] ?? null;
 
         if (!$customerId) {
-            return redirect()->route('home')->with('error', 'No se pudo obtener la identificación del cliente.');
+            return redirect()->route('cancellation.form')->with('error', 'No se pudo obtener la identificación del cliente.');
         }
 
         // Almacenar información del cliente en la sesión para evitar búsquedas posteriores

@@ -7,6 +7,23 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\GoHighLevelController;
 use App\Http\Controllers\CancellationController;
 
+// Rutas públicas de cancelación (DEBEN estar ANTES de cualquier middleware de autenticación)
+Route::prefix('gohighlevel')->group(function () {
+    Route::get('cancellation', [CancellationController::class, 'index'])->name('cancellation.index');
+    Route::get('cancellation/form', [CancellationController::class, 'cancellation'])->name('cancellation.form');
+    Route::get('cancellation/survey/{customer_id}', [CancellationController::class, 'surveyCancellation'])->name('cancellation.survey');
+    Route::post('cancellation/survey/save', [CancellationController::class, 'surveyCancellationSave'])->name('cancellation.survey.save');
+    Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
+    Route::get('cancellation/send-verification', [CancellationController::class, 'sendCancellationVerification'])->name('cancellation.send.verification');
+    Route::get('cancellation/customer-ghl', [CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
+    Route::get('cancellation/manual/{customer_id?}/{subscription_id?}', [CancellationController::class, 'manualCancellation'])->name('cancellation.manual');
+    Route::post('cancellation/cancel', [CancellationController::class, 'publicCancelSubscription'])->name('cancellation.cancel');
+    Route::get('cancellation/search', [CancellationController::class, 'cancellationCustomerGHL'])->where('email', '.*');
+});
+
+// Ruta adicional para acceso directo a verificación (sin prefijo gohighlevel)
+Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify.direct');
+
 // Ruta principal - redirigir al dashboard si está autenticado
 Route::get('/', function () {
     if (auth()->check()) {
@@ -154,23 +171,6 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
         Route::delete('/{comparison}', [App\Http\Controllers\Admin\GHLComparisonController::class, 'destroy'])->name('destroy');
     });
 });
-
-// Rutas públicas de cancelación (sin autenticación requerida)
-Route::prefix('gohighlevel')->group(function () {
-    Route::get('cancellation', [CancellationController::class, 'index'])->name('cancellation.index');
-    Route::get('cancellation/form', [CancellationController::class, 'cancellation'])->name('cancellation.form');
-    Route::get('cancellation/survey/{customer_id}', [CancellationController::class, 'surveyCancellation'])->name('cancellation.survey');
-    Route::post('cancellation/survey/save', [CancellationController::class, 'surveyCancellationSave'])->name('cancellation.survey.save');
-    Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
-    Route::get('cancellation/send-verification', [CancellationController::class, 'sendCancellationVerification'])->name('cancellation.send.verification');
-    Route::get('cancellation/customer-ghl', [CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
-    Route::get('cancellation/manual/{customer_id?}/{subscription_id?}', [CancellationController::class, 'manualCancellation'])->name('cancellation.manual');
-    Route::post('cancellation/cancel', [CancellationController::class, 'publicCancelSubscription'])->name('cancellation.cancel');
-    Route::get('cancellation/search', [CancellationController::class, 'cancellationCustomerGHL'])->where('email', '.*');
-});
-
-// Ruta adicional para acceso directo a verificación (sin prefijo gohighlevel)
-Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify.direct');
 
 // Ruta home después del login
 Route::get('/home', function () {

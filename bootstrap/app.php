@@ -18,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'api_key' => \App\Http\Middleware\ApiKeyMiddleware::class,
         ]);
+        
+        // Excluir rutas de cancelación del middleware de autenticación
+        $middleware->validateCsrfTokens(except: [
+            'gohighlevel/cancellation/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
