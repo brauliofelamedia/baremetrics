@@ -155,7 +155,8 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     });
 });
 
-Route::prefix('gohighlevel')->middleware(['web'])->group(function () {
+// Rutas públicas de cancelación (sin autenticación requerida)
+Route::prefix('gohighlevel')->group(function () {
     Route::get('cancellation', [CancellationController::class, 'index'])->name('cancellation.index');
     Route::get('cancellation/form', [CancellationController::class, 'cancellation'])->name('cancellation.form');
     Route::get('cancellation/survey/{customer_id}', [CancellationController::class, 'surveyCancellation'])->name('cancellation.survey');
