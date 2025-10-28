@@ -38,15 +38,15 @@ class TestCancellationAdminNotification extends Command
         // Generamos un token de prueba
         $token = Str::random(64);
         
-        // Almacenamos el token en la base de datos con una duración de 15 minutos
+        // Almacenamos el token en la base de datos con una duración de 30 minutos
         $tokenRecord = CancellationToken::create([
             'token' => $token,
             'email' => $email,
-            'expires_at' => Carbon::now()->addMinutes(15)
+            'expires_at' => Carbon::now()->addMinutes(30)
         ]);
         
         // También almacenamos en caché para compatibilidad
-        Cache::put('cancellation_token_' . $token, $email, Carbon::now()->addMinutes(15));
+        Cache::put('cancellation_token_' . $token, $email, Carbon::now()->addMinutes(30));
         
         // Generamos una URL de verificación de prueba
         $verificationUrl = url('cancellation/verify/' . $token);

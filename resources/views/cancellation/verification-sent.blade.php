@@ -32,7 +32,7 @@
         </p>
         <div style="background-color: #f0f4ff; border-left: 4px solid #292272; padding: 12px; margin: 20px 0; text-align: left; border-radius: 0 8px 8px 0;">
             <p style="margin: 0; color: #4b5563; font-size: 14px;">
-                <strong>Importante:</strong> El enlace expirará en <strong>15 minutos</strong> por motivos de seguridad.
+                <strong>Importante:</strong> El enlace expirará en <strong>30 minutos</strong> por motivos de seguridad.
             </p>
         </div>
     </div>

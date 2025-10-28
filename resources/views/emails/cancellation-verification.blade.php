@@ -116,7 +116,7 @@
             </div>
             
             <div class="info-box">
-                <p style="margin: 0"><strong>Importante:</strong> Este enlace expirará en 15 minutos por motivos de seguridad.</p>
+                <p style="margin: 0"><strong>Importante:</strong> Este enlace expirará en 30 minutos por motivos de seguridad.</p>
             </div>
             
             @if(isset($isAdminCopy) && $isAdminCopy)
@@ -125,7 +125,7 @@
                     <ul style="margin: 10px 0 0; color: #0369a1; font-size: 14px;">
                         <li>Puedes procesar la cancelación directamente desde el panel de administración</li>
                         <li>Puedes invalidar este token si es necesario</li>
-                        <li>El token expirará automáticamente en 15 minutos</li>
+                        <li>El token expirará automáticamente en 30 minutos</li>
                     </ul>
                 </div>
             @else

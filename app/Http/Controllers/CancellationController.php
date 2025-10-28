@@ -289,14 +289,14 @@ class CancellationController extends Controller
             \Log::info('Generando token de cancelación', [
                 'email' => $email,
                 'token' => substr($token, 0, 20) . '...',
-                'expires_at' => Carbon::now()->addMinutes(15)->toDateTimeString()
+                'expires_at' => Carbon::now()->addMinutes(30)->toDateTimeString()
             ]);
             
-            // Almacenamos el token en la base de datos con una duración de 15 minutos
+            // Almacenamos el token en la base de datos con una duración de 30 minutos
             $tokenRecord = CancellationToken::create([
                 'token' => $token,
                 'email' => $email,
-                'expires_at' => Carbon::now()->addMinutes(15)
+                'expires_at' => Carbon::now()->addMinutes(30)
             ]);
             
             \Log::info('Token almacenado en base de datos', [
@@ -305,7 +305,7 @@ class CancellationController extends Controller
             ]);
             
             // También almacenamos en caché para compatibilidad con el método de verificación existente
-            Cache::put('cancellation_token_' . $token, $email, Carbon::now()->addMinutes(15));
+            Cache::put('cancellation_token_' . $token, $email, Carbon::now()->addMinutes(30));
             
             \Log::info('Token almacenado en caché', [
                 'email' => $email
@@ -320,7 +320,7 @@ class CancellationController extends Controller
             if ($mailSent) {
                 return view('cancellation.verification-sent', [
                     'email' => $email
-                ])->with('success', 'Se ha enviado un enlace de verificación a su correo electrónico. El enlace expirará en 15 minutos.');
+                ])->with('success', 'Se ha enviado un enlace de verificación a su correo electrónico. El enlace expirará en 30 minutos.');
             } else {
                 return view('cancellation.verification-sent', [
                     'email' => $email

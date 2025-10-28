@@ -43,7 +43,7 @@
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle"></i>
                                 <strong>Información:</strong> Esta página muestra todos los tokens activos de cancelación. 
-                                Los tokens expiran automáticamente en 15 minutos. Puedes invalidar tokens si es necesario.
+                                Los tokens expiran automáticamente en 30 minutos. Puedes invalidar tokens si es necesario.
                             </div>
                         </div>
                     </div>
