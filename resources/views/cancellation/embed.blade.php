@@ -37,59 +37,65 @@
         $subscriptionOid = $subscription_id;
     }
     
-    // Construir el objeto params de forma segura
-    $hasSubscriptionOid = !empty($subscriptionOid);
+    // Construir el objeto params completo en PHP
+    $params = [
+        'access_token_id' => '65697af2-ed89-4a8c-bf8b-c7919fd325f2',
+        'customer_oid' => $customer_id ?? '',
+        'test_mode' => false
+    ];
+    
+    if (!empty($subscriptionOid)) {
+        $params['subscription_oid'] = $subscriptionOid;
+    }
+    
+    // Convertir a JSON para generar JavaScript válido
+    $paramsJson = json_encode($params, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 @endphp
 
 <script>
-// Usar el snippet oficial de Baremetrics (igual que en manual.blade.php)
 !function(){if(window.barecancel&&window.barecancel.created)window.console&&console.error&&console.error("Barecancel snippet included twice.");else{window.barecancel={created:!0};var a=document.createElement("script");a.src="https://baremetrics-barecancel.baremetrics.com/js/application.js",a.async=!0;var b=document.getElementsByTagName("script")[0];b.parentNode.insertBefore(a,b),
 
-window.barecancel.params = {
-    access_token_id: "65697af2-ed89-4a8c-bf8b-c7919fd325f2",
-    customer_oid: "{{ $customer_id }}"{!! $hasSubscriptionOid ? ',
-    subscription_oid: "' . $subscriptionOid . '"' : '' !!},
-    test_mode: false,
-    callback_send: function(data) {
-        console.log('Barecancel completado - Baremetrics ya canceló automáticamente la suscripción', data);
-        
-        $('#message-loading').html('<p style="font-size: 18px;font-family:Arial;">¡Listo! Tu suscripción ha sido cancelada exitosamente. Gracias por completar la encuesta.</p>');
-        
-        var ajaxData = {
-            customer_id: "{{ $customer_id }}",
-            subscription_id: "{{ $subscription_id ?? '' }}",
-            cancellation_reason: data.reason || data.cancellation_reason || '',
-            cancellation_comments: data.comment || data.comments || '',
-            barecancel_data: JSON.stringify(data),
-            sync_only: true,
-            _token: "{{ csrf_token() }}"
-        };
-        
-        @if($hasSubscriptionOid)
-        ajaxData.baremetrics_subscription_oid = "{{ $subscriptionOid }}";
-        @endif
-        
-        $.ajax({
-            url: "{{ route('cancellation.cancel.embed') }}",
-            type: "POST",
-            data: ajaxData,
-            success: function(response) {
-                setTimeout(function() {
-                    window.location.href = "{{ route('cancellation.index') }}";
-                }, 3000);
-            },
-            error: function(xhr) {
-                console.log('Error en sincronización (no crítico):', xhr);
-                setTimeout(function() {
-                    window.location.href = "{{ route('cancellation.index') }}";
-                }, 3000);
-            }
-        });
-    },
-    callback_error: function(error) {
-        $('#message-loading').html('<p style="font-size: 18px;font-family:Arial;color:red;">Error al cargar el formulario de cancelación de Baremetrics: ' + (error && error.message ? error.message : 'Error desconocido.') + '</p>');
-        console.error('Error en Barecancel embed:', error);
-    }
+window.barecancel.params = {!! $paramsJson !!};
+window.barecancel.params.callback_send = function(data) {
+    console.log('Barecancel completado - Baremetrics ya canceló automáticamente la suscripción', data);
+    
+    $('#message-loading').html('<p style="font-size: 18px;font-family:Arial;">¡Listo! Tu suscripción ha sido cancelada exitosamente. Gracias por completar la encuesta.</p>');
+    
+    var ajaxData = {
+        customer_id: "{{ $customer_id }}",
+        subscription_id: "{{ $subscription_id ?? '' }}",
+        cancellation_reason: data.reason || data.cancellation_reason || '',
+        cancellation_comments: data.comment || data.comments || '',
+        barecancel_data: JSON.stringify(data),
+        sync_only: true,
+        _token: "{{ csrf_token() }}"
+    };
+    
+    @if(!empty($subscriptionOid))
+    ajaxData.baremetrics_subscription_oid = "{{ $subscriptionOid }}";
+    @endif
+    
+    $.ajax({
+        url: "{{ route('cancellation.cancel.embed') }}",
+        type: "POST",
+        data: ajaxData,
+        success: function(response) {
+            setTimeout(function() {
+                window.location.href = "{{ route('cancellation.index') }}";
+            }, 3000);
+        },
+        error: function(xhr) {
+            console.log('Error en sincronización (no crítico):', xhr);
+            setTimeout(function() {
+                window.location.href = "{{ route('cancellation.index') }}";
+            }, 3000);
+        }
+    });
+};
+window.barecancel.params.callback_error = function(error) {
+    $('#message-loading').html('<p style="font-size: 18px;font-family:Arial;color:red;">Error al cargar el formulario de cancelación de Baremetrics: ' + (error && error.message ? error.message : 'Error desconocido.') + '</p>');
+    console.error('Error en Barecancel embed:', error);
+};
 }}();
 </script>
 <script>
