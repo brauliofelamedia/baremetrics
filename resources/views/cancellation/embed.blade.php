@@ -36,6 +36,9 @@
     } elseif (isset($subscription_id) && !empty($subscription_id)) {
         $subscriptionOid = $subscription_id;
     }
+    
+    // Construir el objeto params de forma segura
+    $hasSubscriptionOid = !empty($subscriptionOid);
 @endphp
 
 <script>
@@ -44,7 +47,8 @@
 
 window.barecancel.params = {
     access_token_id: "65697af2-ed89-4a8c-bf8b-c7919fd325f2",
-    customer_oid: "{{ $customer_id }}"@if(!empty($subscriptionOid)),subscription_oid: "{{ $subscriptionOid }}"@endif,
+    customer_oid: "{{ $customer_id }}"{!! $hasSubscriptionOid ? ',
+    subscription_oid: "' . $subscriptionOid . '"' : '' !!},
     test_mode: false,
     callback_send: function(data) {
         console.log('Barecancel completado - Baremetrics ya canceló automáticamente la suscripción', data);
@@ -61,7 +65,7 @@ window.barecancel.params = {
             _token: "{{ csrf_token() }}"
         };
         
-        @if(!empty($subscriptionOid))
+        @if($hasSubscriptionOid)
         ajaxData.baremetrics_subscription_oid = "{{ $subscriptionOid }}";
         @endif
         
