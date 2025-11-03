@@ -152,11 +152,12 @@ class BaremetricsService
     public function getSources(): ?array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-            ])->get($this->baseUrl . '/sources');
+            $response = Http::timeout(10) // 10 segundos timeout para evitar cuelgues
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json',
+                ])->get($this->baseUrl . '/sources');
 
             if ($response->successful()) {
                 return $response->json();
@@ -314,11 +315,12 @@ class BaremetricsService
                     $url = $this->baseUrl . '/' . $sourceId . '/customers?sort=created&page=' . $page . '&order=asc&per_page=100';
                 }
 
-                $response = Http::withHeaders([
-                    'Authorization' => 'Bearer ' . $this->apiKey,
-                    'Accept' => 'application/json',
-                    'Content-Type' => 'application/json',
-                ])->get($url);
+                $response = Http::timeout(10) // 10 segundos timeout para evitar cuelgues
+                    ->withHeaders([
+                        'Authorization' => 'Bearer ' . $this->apiKey,
+                        'Accept' => 'application/json',
+                        'Content-Type' => 'application/json',
+                    ])->get($url);
 
                 if ($response->successful()) {
                     return $response->json();
@@ -474,28 +476,38 @@ class BaremetricsService
 
             // Buscar en cada fuente usando el parámetro search (la API filtra directamente)
             foreach ($sourceIds as $sourceId) {
-                $response = $this->getCustomers($sourceId, $email, 1);
+                try {
+                    $response = $this->getCustomers($sourceId, $email, 1);
 
-                if (!$response) {
+                    if (!$response) {
+                        continue;
+                    }
+
+                    $customers = [];
+                    if (is_array($response) && isset($response['customers']) && is_array($response['customers'])) {
+                        $customers = $response['customers'];
+                    } elseif (is_array($response)) {
+                        $customers = $response;
+                    }
+
+                    // Buscar por email en los resultados filtrados
+                    foreach ($customers as $customer) {
+                        if (isset($customer['email']) && strtolower($customer['email']) === strtolower($email)) {
+                            return [$customer]; // Devolver array con el cliente encontrado
+                        }
+                    }
+
+                    // Pequeña pausa entre requests para no sobrecargar la API
+                    usleep(100000); // 100ms
+                } catch (\Exception $sourceError) {
+                    Log::warning('Error en búsqueda de customer por source', [
+                        'source_id' => $sourceId,
+                        'email' => $email,
+                        'error' => $sourceError->getMessage()
+                    ]);
+                    // Continuar con el siguiente source
                     continue;
                 }
-
-                $customers = [];
-                if (is_array($response) && isset($response['customers']) && is_array($response['customers'])) {
-                    $customers = $response['customers'];
-                } elseif (is_array($response)) {
-                    $customers = $response;
-                }
-
-                // Buscar por email en los resultados filtrados
-                foreach ($customers as $customer) {
-                    if (isset($customer['email']) && strtolower($customer['email']) === strtolower($email)) {
-                        return [$customer]; // Devolver array con el cliente encontrado
-                    }
-                }
-
-                // Pequeña pausa entre requests para no sobrecargar la API
-                usleep(100000); // 100ms
             }
 
             return null; // No encontrado

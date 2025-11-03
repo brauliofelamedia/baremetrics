@@ -32,7 +32,18 @@
         </div>
     </div>
 
+    @if(request()->has('embed') && request()->get('embed') == '1')
+    <div style="background-color: #d1ecf1; border-left: 4px solid #0c5460; padding: 12px; margin-bottom: 20px; border-radius: 0 8px 8px 0;">
+        <p style="margin: 0; color: #0c5460; font-size: 13px;">
+            <strong>Modo Embed:</strong> Estás usando el flujo con embed de Baremetrics.
+        </p>
+    </div>
+    @endif
+
     <form action="{{ route('cancellation.send.verification') }}" method="GET" id="cancellationForm">
+        @if(request()->has('embed') && request()->get('embed') == '1')
+        <input type="hidden" name="embed" value="1">
+        @endif
         <div class="form-group">
             <label for="email" class="form-label">Correo electrónico</label>
             <div class="input-group">

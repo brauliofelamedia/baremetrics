@@ -151,6 +151,80 @@ class CancellationController extends Controller
        ]);
     }
 
+    /**
+     * Procesar cancelación con embed de Baremetrics
+     */
+    public function embedCancellation($customer_id = null, $subscription_id = null)
+    {
+       $customer_id = request()->get('customer_id', $customer_id);
+       $subscription_id = request()->get('subscription_id', $subscription_id);
+       
+       \Log::info('embedCancellation llamado', [
+           'customer_id' => $customer_id,
+           'subscription_id' => $subscription_id
+       ]);
+       
+       // Obtener datos de la sesión
+       $email = session('cancellation_email');
+       $customer = session('cancellation_customer');
+       $activeSubscriptions = session('cancellation_active_subscriptions', []);
+       
+       // Encontrar la suscripción seleccionada
+       $selectedSubscription = null;
+       if (!empty($activeSubscriptions) && !empty($subscription_id)) {
+           foreach ($activeSubscriptions as $subscription) {
+               // Buscar por subscription_id o baremetrics_subscription_oid
+               $subId = $subscription['subscription_id'] ?? null;
+               $bmSubId = $subscription['baremetrics_subscription_oid'] ?? null;
+               
+               if (($subId && $subId == $subscription_id) || 
+                   ($bmSubId && $bmSubId == $subscription_id)) {
+                   $selectedSubscription = $subscription;
+                   \Log::info('Suscripción encontrada en sesión', [
+                       'subscription_id' => $subscription_id,
+                       'encontrada' => true
+                   ]);
+                   break;
+               }
+           }
+       }
+       
+       if (!$selectedSubscription && !empty($activeSubscriptions)) {
+           // Si no se encontró la suscripción específica pero hay suscripciones activas,
+           // tomamos la primera por defecto
+           $selectedSubscription = $activeSubscriptions[0];
+           $customer_id = $selectedSubscription['customer_id'] ?? $customer_id;
+           $subscription_id = $selectedSubscription['subscription_id'] ?? 
+                             $selectedSubscription['baremetrics_subscription_oid'] ?? 
+                             $subscription_id;
+           \Log::info('Usando primera suscripción de la sesión como fallback', [
+               'subscription_id' => $subscription_id
+           ]);
+       }
+       
+       // Si aún no tenemos subscription_id pero tenemos subscription de Baremetrics, usar ese
+       if (empty($subscription_id) && $selectedSubscription) {
+           $subscription_id = $selectedSubscription['baremetrics_subscription_oid'] ?? 
+                            $selectedSubscription['subscription_id'] ?? 
+                            $subscription_id;
+       }
+       
+       \Log::info('embedCancellation - Datos finales para el embed', [
+           'customer_id' => $customer_id,
+           'subscription_id' => $subscription_id,
+           'has_selectedSubscription' => !empty($selectedSubscription),
+           'email' => $email
+       ]);
+       
+       return view('cancellation.embed', [
+           'subscription_id' => $subscription_id,
+           'customer_id' => $customer_id,
+           'email' => $email,
+           'customer' => $customer,
+           'selectedSubscription' => $selectedSubscription
+       ]);
+    }
+
     private function getCustomers(string $search = '')
     {
         if (empty($search)) {
@@ -166,19 +240,37 @@ class CancellationController extends Controller
      * 
      * @param string $email Correo electrónico del destinatario
      * @param string $verificationUrl URL para verificar la cancelación
+     * @param string $flowType Tipo de flujo ('survey' o 'embed')
      * @return bool Indica si el correo se envió correctamente
      */
-    private function sendVerificationEmail(string $email, string $verificationUrl)
+    private function sendVerificationEmail(string $email, string $verificationUrl, string $flowType = 'survey')
     {
         try {
+            \Log::info('Iniciando envío de correo de verificación', [
+                'email' => $email,
+                'flowType' => $flowType,
+                'mail_driver' => config('mail.default'),
+                'mail_host' => config('mail.mailers.smtp.host'),
+                'mail_port' => config('mail.mailers.smtp.port')
+            ]);
+            
             // Enviar correo al usuario
             Mail::send('emails.cancellation-verification', [
                 'verificationUrl' => $verificationUrl,
-                'email' => $email
-            ], function($message) use ($email) {
+                'email' => $email,
+                'flowType' => $flowType
+            ], function($message) use ($email, $flowType) {
+                $subject = $flowType === 'embed' 
+                    ? 'Verificación de cancelación de suscripción (Embed)'
+                    : 'Verificación de cancelación de suscripción';
                 $message->to($email)
-                    ->subject('Verificación de cancelación de suscripción');
+                    ->subject($subject);
             });
+            
+            \Log::info('Correo principal enviado', [
+                'email' => $email,
+                'mail_failures' => Mail::failures()
+            ]);
             
             // Enviar copia a los administradores configurados
             $adminEmails = $this->getCancellationNotificationEmails();
@@ -187,18 +279,38 @@ class CancellationController extends Controller
                     Mail::send('emails.cancellation-verification', [
                         'verificationUrl' => $verificationUrl,
                         'email' => $email,
-                        'isAdminCopy' => true
-                    ], function($message) use ($email, $adminEmail) {
+                        'isAdminCopy' => true,
+                        'flowType' => $flowType
+                    ], function($message) use ($email, $adminEmail, $flowType) {
+                        $subject = $flowType === 'embed'
+                            ? 'COPIA ADMIN - Solicitud de cancelación (Embed): ' . $email
+                            : 'COPIA ADMIN - Solicitud de cancelación: ' . $email;
                         $message->to($adminEmail)
-                            ->subject('COPIA ADMIN - Solicitud de cancelación: ' . $email);
+                            ->subject($subject);
                     });
                 }
+                \Log::info('Correos de administradores enviados', [
+                    'admin_emails' => $adminEmails,
+                    'mail_failures' => Mail::failures()
+                ]);
             }
             
-            return !Mail::failures();
+            $hasFailures = Mail::failures();
+            $success = empty($hasFailures);
+            
+            if ($hasFailures) {
+                \Log::warning('Fallo en envío de correos', [
+                    'failures' => $hasFailures
+                ]);
+            } else {
+                \Log::info('Todos los correos enviados exitosamente');
+            }
+            
+            return $success;
         } catch (\Exception $e) {
             \Log::error('Error al enviar correo de verificación: ' . $e->getMessage(), [
                 'email' => $email,
+                'flowType' => $flowType,
                 'trace' => $e->getTraceAsString()
             ]);
             return false;
@@ -211,14 +323,68 @@ class CancellationController extends Controller
     public function sendCancellationVerification(Request $request)
     {
         $email = trim((string) $request->query('email', ''));
+        // Detectar si se está usando el flujo embed mediante parámetro GET
+        $useEmbed = $request->has('embed') && $request->query('embed') == '1';
+        $flowType = $useEmbed ? 'embed' : 'survey';
+
+        \Log::info('Iniciando solicitud de verificación de cancelación', [
+            'email' => $email,
+            'has_embed_param' => $request->has('embed'),
+            'embed_value' => $request->query('embed'),
+            'useEmbed' => $useEmbed,
+            'flowType' => $flowType,
+            'all_query_params' => $request->query()
+        ]);
+
+        // Función auxiliar para manejar redirección cuando no hay referrer
+        $redirectBack = function($message, $type = 'error') use ($request) {
+            try {
+                if ($request->headers->get('referer')) {
+                    return redirect()->back()->with($type, $message);
+                } else {
+                    // Si no hay referrer, redirigir a la página de cancelación
+                    return redirect()->route('cancellation.form')->with($type, $message);
+                }
+            } catch (\Exception $e) {
+                // Fallback seguro a la página de cancelación
+                return redirect()->route('cancellation.form')->with($type, $message);
+            }
+        };
 
         if ($email === '') {
-            return redirect()->back()->with('error', 'El parámetro email es obligatorio.');
+            \Log::warning('Email vacío en solicitud de verificación');
+            return $redirectBack('El parámetro email es obligatorio.');
         }
 
         try {
             // Verificamos si el email existe en nuestros sistemas
-            $customers = $this->getCustomers($email);
+            \Log::info('Buscando cliente en Baremetrics', ['email' => $email]);
+            
+            // Agregar timeout más corto para evitar que se quede colgado
+            set_time_limit(20); // 20 segundos máximo (reducido de 30)
+            
+            try {
+                // Configurar timeout explícito para la búsqueda de clientes
+                $customers = $this->getCustomers($email);
+            } catch (\Illuminate\Http\Client\ConnectionException $connectionError) {
+                \Log::error('Timeout en conexión a Baremetrics', [
+                    'email' => $email,
+                    'error' => $connectionError->getMessage()
+                ]);
+                return $redirectBack('Error de conexión al buscar el cliente. Por favor, intente nuevamente.');
+            } catch (\Exception $searchError) {
+                \Log::error('Error en búsqueda de clientes en Baremetrics', [
+                    'email' => $email,
+                    'error' => $searchError->getMessage()
+                ]);
+                return $redirectBack('Error al buscar el cliente. Por favor, intente nuevamente.');
+            }
+            
+            \Log::info('Resultado de búsqueda de clientes', [
+                'email' => $email,
+                'customers_count' => is_array($customers) ? count($customers) : 0,
+                'customers_structure' => is_array($customers) && isset($customers['customers']) ? 'has_customers_key' : 'direct_array'
+            ]);
             
             // Verificamos que haya clientes con ese email
             if (is_array($customers) && isset($customers['customers']) && is_array($customers['customers'])) {
@@ -233,54 +399,224 @@ class CancellationController extends Controller
                 return isset($customer['email']) && strtolower(trim($customer['email'])) === strtolower(trim($email));
             });
 
+            \Log::info('Clientes encontrados después del filtro', [
+                'email' => $email,
+                'matched_count' => count($matchedCustomers)
+            ]);
+
             if (empty($matchedCustomers)) {
-                return redirect()->back()->with('error', 'No se encontró ningún cliente con ese email.');
+                \Log::warning('No se encontró cliente con el email', ['email' => $email]);
+                return $redirectBack('No se encontró ningún cliente con ese email.');
             }
 
-            // Verificamos si tiene suscripciones activas directamente en Stripe
+            // Verificamos si tiene suscripciones activas
+            // PRIORIDAD: Usar datos de Baremetrics primero, luego verificar en Stripe si es posible
             $hasActiveSubscriptions = false;
+            $maxVerificationTime = 8; // 8 segundos máximo para verificar suscripciones (reducido de 10)
+            $startTime = microtime(true);
+            
+            // Configurar timeout explícito para Stripe API
+            \Stripe\Stripe::setMaxNetworkRetries(2); // Reducir reintentos
+            $originalTimeout = ini_get('default_socket_timeout');
+            ini_set('default_socket_timeout', 5); // 5 segundos máximo para conexiones
+            
             foreach ($matchedCustomers as $customer) {
-                try {
-                    // Verificar directamente en Stripe todas las suscripciones del cliente
-                    $allSubscriptions = \Stripe\Subscription::all([
-                        'customer' => $customer['oid'],
-                        'status' => 'all', // Obtenemos todas para verificar su estado
-                        'limit' => 100
+                // MÉTODO 1: Verificar datos de Baremetrics primero (más confiable)
+                // Si Baremetrics dice que está activo y tiene planes activos, confiamos en eso
+                $isActiveInBaremetrics = (
+                    (isset($customer['is_active']) && $customer['is_active'] == true) ||
+                    (isset($customer['is_active']) && $customer['is_active'] == 1)
+                ) && (
+                    (isset($customer['is_canceled']) && $customer['is_canceled'] == false) ||
+                    (isset($customer['is_canceled']) && $customer['is_canceled'] === '') ||
+                    !isset($customer['is_canceled'])
+                );
+                
+                $hasCurrentPlans = isset($customer['current_plans']) && 
+                                   is_array($customer['current_plans']) && 
+                                   !empty($customer['current_plans']);
+                
+                $hasCurrentMrr = isset($customer['current_mrr']) && 
+                                $customer['current_mrr'] > 0;
+                
+                \Log::info('Verificando datos de Baremetrics para cliente', [
+                    'email' => $email,
+                    'customer_oid' => $customer['oid'] ?? 'N/A',
+                    'is_active' => $isActiveInBaremetrics,
+                    'has_current_plans' => $hasCurrentPlans,
+                    'current_mrr' => $customer['current_mrr'] ?? 0,
+                    'plans_count' => $hasCurrentPlans ? count($customer['current_plans']) : 0
+                ]);
+                
+                // Si Baremetrics indica que está activo, confiamos en eso
+                if ($isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)) {
+                    \Log::info('Cliente tiene suscripciones activas según Baremetrics', [
+                        'email' => $email,
+                        'customer_oid' => $customer['oid'],
+                        'reason' => $hasCurrentPlans ? 'tiene current_plans' : 'tiene current_mrr > 0'
                     ]);
-                    
-                    // Verificamos si hay alguna suscripción activa o en periodo de prueba
-                    foreach ($allSubscriptions->data as $subscription) {
-                        if ($subscription->status === 'active' || $subscription->status === 'trialing') {
-                            $hasActiveSubscriptions = true;
-                            break 2;
-                        }
+                    $hasActiveSubscriptions = true;
+                    break; // No necesitamos verificar en Stripe si Baremetrics ya lo confirma
+                }
+                
+                // MÉTODO 2: Intentar verificar en Stripe (solo si no hay datos claros en Baremetrics)
+                // Verificar timeout global del script
+                if ((microtime(true) - $startTime) > $maxVerificationTime) {
+                    \Log::warning('Timeout en verificación de suscripciones, usando datos de Baremetrics', [
+                        'email' => $email,
+                        'elapsed_time' => microtime(true) - $startTime,
+                        'baremetrics_indicates_active' => $isActiveInBaremetrics
+                    ]);
+                    // Usar datos de Baremetrics como fallback
+                    if ($isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)) {
+                        $hasActiveSubscriptions = true;
+                        break;
                     }
-                } catch (\Exception $e) {
-                    \Log::error('Error al obtener suscripciones de Stripe: ' . $e->getMessage(), [
-                        'customer_id' => $customer['oid'],
-                        'email' => $email
-                    ]);
+                    continue;
+                }
+                
+                try {
+                    // Intentar buscar customer en Stripe por email primero (más confiable que por OID)
+                    $stripeCustomers = [];
+                    try {
+                        $stripeCustomersResult = \Stripe\Customer::all([
+                            'email' => $email,
+                            'limit' => 10
+                        ]);
+                        $stripeCustomers = $stripeCustomersResult->data;
+                    } catch (\Exception $e) {
+                        \Log::warning('No se pudo buscar customer por email en Stripe', [
+                            'email' => $email,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
                     
-                    // Como respaldo, intentamos el método antiguo usando current_plans
-                    if (isset($customer['current_plans']) && is_array($customer['current_plans']) && !empty($customer['current_plans'])) {
-                        foreach ($customer['current_plans'] as $plan) {
-                            if (isset($customer['oid']) && isset($plan['oid'])) {
-                                $subscription = $this->stripeService->getSubscriptionCustomer($customer['oid'], $plan['oid']);
-                                if ($subscription && isset($subscription['id'])) {
-                                    $isCanceled = $this->stripeService->checkSubscriptionCancellationStatus($subscription['id']);
-                                    if (!$isCanceled && $customer['is_canceled'] == false) {
+                    // Si encontramos customers en Stripe, verificar sus suscripciones
+                    if (!empty($stripeCustomers)) {
+                        foreach ($stripeCustomers as $stripeCustomer) {
+                            try {
+                                $allSubscriptions = \Stripe\Subscription::all([
+                                    'customer' => $stripeCustomer->id,
+                                    'status' => 'all',
+                                    'limit' => 100
+                                ]);
+                                
+                                foreach ($allSubscriptions->data as $subscription) {
+                                    if ($subscription->status === 'active' || $subscription->status === 'trialing') {
                                         $hasActiveSubscriptions = true;
-                                        break 2;
+                                        \Log::info('Suscripción activa encontrada en Stripe (buscada por email)', [
+                                            'email' => $email,
+                                            'stripe_customer_id' => $stripeCustomer->id,
+                                            'subscription_id' => $subscription->id,
+                                            'status' => $subscription->status
+                                        ]);
+                                        break 2; // Salir de ambos loops
                                     }
                                 }
+                            } catch (\Exception $subError) {
+                                \Log::warning('Error verificando suscripciones en Stripe por customer ID', [
+                                    'stripe_customer_id' => $stripeCustomer->id ?? 'N/A',
+                                    'error' => $subError->getMessage()
+                                ]);
                             }
                         }
+                        
+                        // Si ya encontramos suscripciones activas, no continuar con el método del OID
+                        if ($hasActiveSubscriptions) {
+                            break;
+                        }
                     }
+                    
+                    // Intentar también con el OID de Baremetrics (puede fallar pero lo intentamos)
+                    try {
+                        $allSubscriptions = \Stripe\Subscription::all([
+                            'customer' => $customer['oid'],
+                            'status' => 'all',
+                            'limit' => 100
+                        ]);
+                        
+                        foreach ($allSubscriptions->data as $subscription) {
+                            if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                                $hasActiveSubscriptions = true;
+                                \Log::info('Suscripción activa encontrada en Stripe (buscada por OID)', [
+                                    'customer_oid' => $customer['oid'],
+                                    'subscription_id' => $subscription->id,
+                                    'status' => $subscription->status
+                                ]);
+                                break 2;
+                            }
+                        }
+                    } catch (\Stripe\Exception\InvalidRequestException $oidError) {
+                        // El OID no es válido en Stripe, esto es normal y lo ignoramos
+                        \Log::debug('OID de Baremetrics no válido en Stripe (normal)', [
+                            'customer_oid' => $customer['oid'],
+                            'email' => $email
+                        ]);
+                    }
+                    
+                } catch (\Stripe\Exception\ApiConnectionException $e) {
+                    // Error de conexión/timeout de Stripe - usar datos de Baremetrics
+                    \Log::warning('Error de conexión con Stripe, usando datos de Baremetrics', [
+                        'customer_id' => $customer['oid'],
+                        'email' => $email,
+                        'error' => $e->getMessage(),
+                        'elapsed_time' => microtime(true) - $startTime,
+                        'baremetrics_active' => $isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)
+                    ]);
+                    
+                    // Si Baremetrics indica activo, confiamos en eso
+                    if ($isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)) {
+                        $hasActiveSubscriptions = true;
+                        break;
+                    }
+                    continue;
+                } catch (\Stripe\Exception\InvalidRequestException $e) {
+                    // Customer no encontrado en Stripe - usar datos de Baremetrics
+                    \Log::warning('Customer no encontrado en Stripe, usando datos de Baremetrics', [
+                        'customer_oid' => $customer['oid'],
+                        'email' => $email,
+                        'error' => $e->getMessage(),
+                        'baremetrics_active' => $isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)
+                    ]);
+                    
+                    // Confiar en los datos de Baremetrics si indican que está activo
+                    if ($isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)) {
+                        \Log::info('Usando datos de Baremetrics: cliente activo con suscripciones', [
+                            'email' => $email,
+                            'customer_oid' => $customer['oid']
+                        ]);
+                        $hasActiveSubscriptions = true;
+                        break;
+                    }
+                } catch (\Exception $e) {
+                    // Otro tipo de error de Stripe - usar datos de Baremetrics
+                    \Log::error('Error inesperado al obtener suscripciones de Stripe, usando datos de Baremetrics', [
+                        'customer_id' => $customer['oid'],
+                        'email' => $email,
+                        'error_type' => get_class($e),
+                        'error' => $e->getMessage(),
+                        'baremetrics_active' => $isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)
+                    ]);
+                    
+                    // Confiar en Baremetrics si indica activo
+                    if ($isActiveInBaremetrics && ($hasCurrentPlans || $hasCurrentMrr)) {
+                        $hasActiveSubscriptions = true;
+                        break;
+                    }
+                    continue;
                 }
             }
+            
+            // Restaurar configuración original de timeout
+            ini_set('default_socket_timeout', $originalTimeout);
+            
+            \Log::info('Verificación de suscripciones activas completada', [
+                'email' => $email,
+                'hasActiveSubscriptions' => $hasActiveSubscriptions
+            ]);
 
             if (!$hasActiveSubscriptions) {
-                return redirect()->back()->with('error', 'No tienes membresías activas de Stripe que puedas cancelar. Todas tus membresías ya se encuentran canceladas.');
+                return $redirectBack('No tienes membresías activas de Stripe que puedas cancelar. Todas tus membresías ya se encuentran canceladas.');
             }
 
             // Generamos un token único
@@ -311,17 +647,63 @@ class CancellationController extends Controller
                 'email' => $email
             ]);
             
-            // Generamos la URL de verificación
-            $verificationUrl = route('cancellation.verify', ['token' => $token]);
+            // Generamos la URL de verificación según el tipo de flujo
+            if ($flowType === 'embed') {
+                $verificationUrl = route('cancellation.verify.embed', ['token' => $token]);
+            } else {
+                $verificationUrl = route('cancellation.verify', ['token' => $token]);
+            }
             
-            // Enviamos el correo con el enlace de verificación
-            $mailSent = $this->sendVerificationEmail($email, $verificationUrl);
+            \Log::info('URL de verificación generada', [
+                'email' => $email,
+                'flowType' => $flowType,
+                'verification_url' => $verificationUrl,
+                'token_preview' => substr($token, 0, 20) . '...'
+            ]);
+            
+            // Enviamos el correo con el enlace de verificación (con timeout para evitar bloqueos)
+            \Log::info('Intentando enviar correo de verificación', [
+                'email' => $email,
+                'flowType' => $flowType
+            ]);
+            
+            // Configurar timeout para el envío de correos
+            $mailTimeout = 8; // 8 segundos máximo para enviar correos
+            $mailStartTime = microtime(true);
+            
+            try {
+                $mailSent = $this->sendVerificationEmail($email, $verificationUrl, $flowType);
+                
+                // Verificar si el envío tardó mucho
+                $mailElapsedTime = microtime(true) - $mailStartTime;
+                if ($mailElapsedTime > $mailTimeout) {
+                    \Log::warning('El envío de correo tardó más del esperado', [
+                        'email' => $email,
+                        'elapsed_time' => $mailElapsedTime
+                    ]);
+                }
+            } catch (\Exception $mailError) {
+                \Log::error('Excepción al enviar correo', [
+                    'email' => $email,
+                    'error' => $mailError->getMessage()
+                ]);
+                $mailSent = false;
+            }
+            
+            \Log::info('Resultado del envío de correo', [
+                'email' => $email,
+                'mailSent' => $mailSent,
+                'flowType' => $flowType,
+                'elapsed_time' => microtime(true) - $mailStartTime
+            ]);
             
             if ($mailSent) {
+                \Log::info('Correo enviado exitosamente, mostrando vista de confirmación', ['email' => $email]);
                 return view('cancellation.verification-sent', [
                     'email' => $email
                 ])->with('success', 'Se ha enviado un enlace de verificación a su correo electrónico. El enlace expirará en 30 minutos.');
             } else {
+                \Log::error('Fallo en envío de correo', ['email' => $email, 'flowType' => $flowType]);
                 return view('cancellation.verification-sent', [
                     'email' => $email
                 ])->with('error', 'No se pudo enviar el correo de verificación. Por favor, intente nuevamente.');
@@ -330,6 +712,10 @@ class CancellationController extends Controller
         } catch (\Exception $e) {
             \Log::error('Error al enviar correo de verificación: ' . $e->getMessage(), [
                 'email' => $email,
+                'flowType' => $flowType,
+                'error_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
             
@@ -391,6 +777,385 @@ class CancellationController extends Controller
 
         // Redirigir directamente a la survey con los datos del cliente
         return redirect()->route('cancellation.survey', ['customer_id' => $customerId]);
+    }
+
+    /**
+     * Verifica el token mágico y redirige al proceso de cancelación con embed
+     */
+    public function verifyCancellationTokenEmbed(Request $request)
+    {
+        $token = $request->query('token', '');
+
+        if (empty($token)) {
+            return redirect()->route('cancellation.form')->with('error', 'El token de verificación es inválido o ha expirado.');
+        }
+
+        // Obtenemos el token desde la base de datos
+        $tokenRecord = CancellationToken::where('token', $token)
+            ->where('is_used', false)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$tokenRecord) {
+            return redirect()->route('cancellation.form')->with('error', 'El token de verificación es inválido o ha expirado.');
+        }
+
+        $email = $tokenRecord->email;
+
+        // Marcamos el token como usado
+        $tokenRecord->markAsUsed();
+
+        // También eliminamos de la caché para consistencia
+        Cache::forget('cancellation_token_' . $token);
+
+        // Obtener el cliente usando el email
+        $customers = $this->getCustomers($email);
+
+        if (empty($customers) || !isset($customers[0])) {
+            return redirect()->route('cancellation.form')->with('error', 'No se encontró información del cliente para proceder con la cancelación.');
+        }
+
+        $customer = $customers[0];
+        $customerId = $customer['oid'] ?? null;
+
+        if (!$customerId) {
+            return redirect()->route('cancellation.form')->with('error', 'No se pudo obtener la identificación del cliente.');
+        }
+
+        // Obtener suscripciones activas
+        // PRIORIDAD: Usar datos de Baremetrics primero, luego verificar en Stripe si es posible
+        $activeSubscriptions = [];
+        
+        // MÉTODO 1: Verificar datos de Baremetrics primero
+        $isActiveInBaremetrics = (
+            (isset($customer['is_active']) && $customer['is_active'] == true) ||
+            (isset($customer['is_active']) && $customer['is_active'] == 1)
+        ) && (
+            (isset($customer['is_canceled']) && $customer['is_canceled'] == false) ||
+            (isset($customer['is_canceled']) && $customer['is_canceled'] === '') ||
+            !isset($customer['is_canceled'])
+        );
+        
+        $hasCurrentPlans = isset($customer['current_plans']) && 
+                          is_array($customer['current_plans']) && 
+                          !empty($customer['current_plans']);
+        
+        $hasCurrentMrr = isset($customer['current_mrr']) && 
+                        $customer['current_mrr'] > 0;
+        
+        \Log::info('verifyCancellationTokenEmbed - Verificando datos de Baremetrics', [
+            'email' => $email,
+            'customer_oid' => $customerId,
+            'is_active' => $isActiveInBaremetrics,
+            'has_current_plans' => $hasCurrentPlans,
+            'current_mrr' => $customer['current_mrr'] ?? 0,
+            'plans_count' => $hasCurrentPlans ? count($customer['current_plans']) : 0
+        ]);
+        
+        // Si Baremetrics indica que está activo, obtener las suscripciones reales desde Baremetrics
+        if ($isActiveInBaremetrics && $hasCurrentPlans) {
+            \Log::info('Obteniendo suscripciones reales de Baremetrics', [
+                'email' => $email,
+                'customer_oid' => $customerId,
+                'source_id' => $customer['source_id'] ?? null,
+                'plans_count' => count($customer['current_plans'])
+            ]);
+            
+            // Obtener source_id del customer
+            $sourceId = $customer['source_id'] ?? null;
+            
+            if ($sourceId) {
+                try {
+                    // Obtener todas las suscripciones del source
+                    $allBaremetricsSubscriptions = $this->baremetricsService->getSubscriptions($sourceId);
+                    
+                    if ($allBaremetricsSubscriptions && isset($allBaremetricsSubscriptions['subscriptions'])) {
+                        // Buscar suscripciones del cliente que coincidan con los planes activos
+                        foreach ($allBaremetricsSubscriptions['subscriptions'] as $bmSubscription) {
+                            $subscriptionCustomerOid = $bmSubscription['customer_oid'] ?? 
+                                                     $bmSubscription['customer']['oid'] ?? 
+                                                     $bmSubscription['customerOid'] ?? 
+                                                     null;
+                            
+                            // Verificar que la suscripción pertenece al cliente
+                            if ($subscriptionCustomerOid === $customerId) {
+                                $subscriptionPlanOid = $bmSubscription['plan_oid'] ?? 
+                                                      $bmSubscription['plan']['oid'] ?? 
+                                                      null;
+                                
+                                // Verificar que el plan coincide con alguno de los current_plans
+                                $matchesPlan = false;
+                                $matchedPlan = null;
+                                foreach ($customer['current_plans'] as $plan) {
+                                    if (($plan['oid'] ?? null) === $subscriptionPlanOid) {
+                                        $matchesPlan = true;
+                                        $matchedPlan = $plan;
+                                        break;
+                                    }
+                                }
+                                
+                                // Solo agregar suscripciones activas que coincidan con current_plans
+                                if ($matchesPlan && ($bmSubscription['active'] ?? false)) {
+                                    $planData = [
+                                        'oid' => $subscriptionPlanOid ?? $matchedPlan['oid'],
+                                        'name' => $matchedPlan['name'] ?? $bmSubscription['plan']['name'] ?? 'Plan',
+                                        'amount' => isset($matchedPlan['amounts'][0]['amount']) ? $matchedPlan['amounts'][0]['amount'] / 100 : 0,
+                                        'currency' => strtoupper($matchedPlan['amounts'][0]['currency'] ?? 'USD'),
+                                        'interval' => $matchedPlan['interval'] ?? 'month',
+                                        'interval_count' => $matchedPlan['interval_count'] ?? 1
+                                    ];
+                                    
+                                    // Usar el subscription_oid real de Baremetrics (NO el plan_oid!)
+                                    $subscriptionOid = $bmSubscription['oid'] ?? null;
+                                    
+                                    if ($subscriptionOid) {
+                                        $activeSubscriptions[] = [
+                                            'subscription' => (object)[
+                                                'id' => $subscriptionOid, // Usar subscription OID real
+                                                'customer' => $customerId,
+                                                'status' => 'active'
+                                            ],
+                                            'plan' => $planData,
+                                            'customer_id' => $customerId,
+                                            'subscription_id' => $subscriptionOid, // Usar subscription OID real
+                                            'baremetrics_subscription_oid' => $subscriptionOid, // OID real de Baremetrics
+                                            'baremetrics_plan_oid' => $subscriptionPlanOid, // OID del plan/precio
+                                            'from_baremetrics' => true
+                                        ];
+                                        
+                                        \Log::info('Suscripción activa encontrada en Baremetrics', [
+                                            'email' => $email,
+                                            'customer_oid' => $customerId,
+                                            'subscription_oid' => $subscriptionOid,
+                                            'plan_oid' => $subscriptionPlanOid,
+                                            'plan_name' => $planData['name']
+                                        ]);
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        \Log::warning('No se pudieron obtener suscripciones de Baremetrics', [
+                            'source_id' => $sourceId,
+                            'customer_oid' => $customerId
+                        ]);
+                    }
+                } catch (\Exception $bmError) {
+                    \Log::error('Error obteniendo suscripciones de Baremetrics', [
+                        'customer_oid' => $customerId,
+                        'source_id' => $sourceId,
+                        'error' => $bmError->getMessage()
+                    ]);
+                }
+            }
+            
+            // Si aún no encontramos suscripciones, usar fallback con current_plans
+            if (empty($activeSubscriptions)) {
+                \Log::warning('No se encontraron suscripciones en Baremetrics API, usando fallback con current_plans', [
+                    'email' => $email,
+                    'customer_oid' => $customerId
+                ]);
+                
+                foreach ($customer['current_plans'] as $plan) {
+                    $planData = [
+                        'oid' => $plan['oid'] ?? $customerId,
+                        'name' => $plan['name'] ?? 'Plan',
+                        'amount' => isset($plan['amounts'][0]['amount']) ? $plan['amounts'][0]['amount'] / 100 : 0,
+                        'currency' => strtoupper($plan['amounts'][0]['currency'] ?? 'USD'),
+                        'interval' => $plan['interval'] ?? 'month',
+                        'interval_count' => $plan['interval_count'] ?? 1
+                    ];
+                    
+                    // En este caso usamos el plan_oid como fallback, pero debería ser temporáneo
+                    $activeSubscriptions[] = [
+                        'subscription' => (object)[
+                            'id' => $plan['oid'],
+                            'customer' => $customerId,
+                            'status' => 'active'
+                        ],
+                        'plan' => $planData,
+                        'customer_id' => $customerId,
+                        'subscription_id' => $plan['oid'],
+                        'baremetrics_plan_oid' => $plan['oid'],
+                        'from_baremetrics' => true,
+                        'is_fallback' => true // Marca que es un fallback
+                    ];
+                }
+            }
+        }
+        
+        // MÉTODO 2: Intentar obtener suscripciones de Stripe (solo si no las tenemos de Baremetrics)
+        if (empty($activeSubscriptions)) {
+            \Log::info('No se encontraron suscripciones en Baremetrics, intentando Stripe', [
+                'email' => $email,
+                'customer_oid' => $customerId
+            ]);
+            
+            try {
+                // Primero intentar por email
+                $stripeCustomers = [];
+                try {
+                    $stripeCustomersResult = \Stripe\Customer::all([
+                        'email' => $email,
+                        'limit' => 10
+                    ]);
+                    $stripeCustomers = $stripeCustomersResult->data;
+                } catch (\Exception $e) {
+                    \Log::debug('No se pudo buscar customer por email en Stripe', [
+                        'email' => $email,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+                
+                // Buscar suscripciones usando los customers encontrados por email
+                if (!empty($stripeCustomers)) {
+                    foreach ($stripeCustomers as $stripeCustomer) {
+                        try {
+                            $allSubscriptions = \Stripe\Subscription::all([
+                                'customer' => $stripeCustomer->id,
+                                'status' => 'all',
+                                'limit' => 100
+                            ]);
+                            
+                            foreach ($allSubscriptions->data as $subscription) {
+                                if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                                    $plan = [
+                                        'oid' => $subscription->plan->id,
+                                        'name' => $subscription->plan->nickname ?? 'Plan ' . ($subscription->plan->amount/100) . ' ' . strtoupper($subscription->plan->currency ?? 'USD'),
+                                        'amount' => $subscription->plan->amount/100,
+                                        'currency' => strtoupper($subscription->plan->currency ?? 'USD'),
+                                        'interval' => $subscription->plan->interval ?? 'month',
+                                        'interval_count' => $subscription->plan->interval_count ?? 1
+                                    ];
+                                    
+                                    $activeSubscriptions[] = [
+                                        'subscription' => $subscription,
+                                        'plan' => $plan,
+                                        'customer_id' => $customerId,
+                                        'subscription_id' => $subscription->id,
+                                        'from_baremetrics' => false
+                                    ];
+                                }
+                            }
+                        } catch (\Exception $subError) {
+                            \Log::warning('Error verificando suscripciones en Stripe por customer ID', [
+                                'stripe_customer_id' => $stripeCustomer->id ?? 'N/A',
+                                'error' => $subError->getMessage()
+                            ]);
+                        }
+                    }
+                }
+                
+                // También intentar con el OID de Baremetrics (puede fallar pero lo intentamos)
+                if (empty($activeSubscriptions)) {
+                    try {
+                        $allSubscriptions = \Stripe\Subscription::all([
+                            'customer' => $customerId,
+                            'status' => 'all',
+                            'limit' => 100
+                        ]);
+                        
+                        foreach ($allSubscriptions->data as $subscription) {
+                            if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                                $plan = [
+                                    'oid' => $subscription->plan->id,
+                                    'name' => $subscription->plan->nickname ?? 'Plan ' . ($subscription->plan->amount/100) . ' ' . strtoupper($subscription->plan->currency ?? 'USD'),
+                                    'amount' => $subscription->plan->amount/100,
+                                    'currency' => strtoupper($subscription->plan->currency ?? 'USD'),
+                                    'interval' => $subscription->plan->interval ?? 'month',
+                                    'interval_count' => $subscription->plan->interval_count ?? 1
+                                ];
+                                
+                                $activeSubscriptions[] = [
+                                    'subscription' => $subscription,
+                                    'plan' => $plan,
+                                    'customer_id' => $customerId,
+                                    'subscription_id' => $subscription->id,
+                                    'from_baremetrics' => false
+                                ];
+                            }
+                        }
+                    } catch (\Stripe\Exception\InvalidRequestException $oidError) {
+                        // El OID no es válido en Stripe, esto es normal
+                        \Log::debug('OID de Baremetrics no válido en Stripe (normal)', [
+                            'customer_oid' => $customerId,
+                            'email' => $email
+                        ]);
+                    }
+                }
+                
+            } catch (\Exception $e) {
+                \Log::error('Error al obtener suscripciones de Stripe en verifyCancellationTokenEmbed: ' . $e->getMessage(), [
+                    'customer_id' => $customerId,
+                    'email' => $email,
+                    'trace' => $e->getTraceAsString()
+                ]);
+            }
+        }
+
+        // Si aún no hay suscripciones activas pero Baremetrics indica que está activo, usar fallback
+        if (empty($activeSubscriptions) && $isActiveInBaremetrics && $hasCurrentMrr) {
+            \Log::warning('No se encontraron suscripciones específicas pero Baremetrics indica activo (MRR > 0), usando fallback', [
+                'email' => $email,
+                'customer_oid' => $customerId,
+                'current_mrr' => $customer['current_mrr']
+            ]);
+            
+            // Crear una suscripción genérica basada en el MRR
+            $activeSubscriptions[] = [
+                'subscription' => (object)[
+                    'id' => $customerId . '_generic',
+                    'customer' => $customerId,
+                    'status' => 'active'
+                ],
+                'plan' => [
+                    'oid' => $customerId,
+                    'name' => 'Suscripción Activa',
+                    'amount' => $customer['current_mrr'] / 100,
+                    'currency' => 'USD',
+                    'interval' => 'month',
+                    'interval_count' => 1
+                ],
+                'customer_id' => $customerId,
+                'subscription_id' => $customerId . '_generic',
+                'from_baremetrics' => true
+            ];
+        }
+
+        \Log::info('verifyCancellationTokenEmbed - Suscripciones activas encontradas', [
+            'email' => $email,
+            'customer_oid' => $customerId,
+            'active_subscriptions_count' => count($activeSubscriptions),
+            'from_baremetrics' => array_filter($activeSubscriptions, fn($s) => $s['from_baremetrics'] ?? false)
+        ]);
+
+        if (empty($activeSubscriptions)) {
+            return redirect()->route('cancellation.form')->with('error', 'No tienes membresías activas de Stripe que puedas cancelar. Todas tus membresías ya se encuentran canceladas.');
+        }
+
+        // Almacenar información del cliente en la sesión
+        session([
+            'cancellation_customer' => $customer,
+            'cancellation_customer_id' => $customerId,
+            'cancellation_email' => $email,
+            'cancellation_active_subscriptions' => $activeSubscriptions
+        ]);
+
+        // Si hay solo una suscripción activa, redirigimos directamente al embed
+        if (count($activeSubscriptions) === 1) {
+            $subscription = $activeSubscriptions[0];
+            return redirect()->route('cancellation.embed', [
+                'customer_id' => $subscription['customer_id'],
+                'subscription_id' => $subscription['subscription_id']
+            ]);
+        }
+        
+        // Si hay múltiples suscripciones, mostramos una vista para seleccionar cuál cancelar
+        return view('cancellation.select_subscription_embed', [
+            'email' => $email,
+            'customer' => $customer,
+            'activeSubscriptions' => $activeSubscriptions
+        ]);
     }
 
     public function cancellationCustomerGHL(Request $request)
@@ -653,6 +1418,258 @@ class CancellationController extends Controller
             
         } catch (\Exception $e) {
             \Log::error('Error al cancelar suscripción: ' . $e->getMessage(), [
+                'customer_id' => $customer_id,
+                'subscription_id' => $subscription_id,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al cancelar la suscripción: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Procesar cancelación de la suscripción con datos del embed de Baremetrics
+     */
+    public function cancelSubscriptionWithEmbed(Request $request)
+    {
+        $customer_id = $request->get('customer_id');
+        $subscription_id = $request->get('subscription_id');
+        $cancellation_reason = $request->get('cancellation_reason', '');
+        $cancellation_comments = $request->get('cancellation_comments', '');
+        $barecancel_data = $request->get('barecancel_data', '');
+        $sync_only = $request->get('sync_only', false); // Si es true, solo sincronización (Baremetrics ya canceló)
+
+        \Log::info('Procesando con embed de Baremetrics', [
+            'customer_id' => $customer_id,
+            'subscription_id' => $subscription_id,
+            'sync_only' => $sync_only,
+            'has_reason' => !empty($cancellation_reason),
+            'has_comments' => !empty($cancellation_comments),
+            'note' => $sync_only ? 'Solo sincronización - Baremetrics ya canceló' : 'Cancelación manual (no debería pasar)'
+        ]);
+
+        try {
+            // Obtener datos de la sesión
+            $email = session('cancellation_email');
+            $customer = session('cancellation_customer');
+
+            // IMPORTANTE: Si sync_only es true, Baremetrics YA canceló la suscripción
+            // Solo necesitamos sincronizar datos, NO cancelar
+            if ($sync_only) {
+                \Log::info('Sincronización después de cancelación automática de Baremetrics', [
+                    'customer_id' => $customer_id,
+                    'email' => $email
+                ]);
+                
+                // Solo guardar el motivo de cancelación en nuestra BD para registro
+                if ($email && $cancellation_reason) {
+                    try {
+                        CancellationSurvey::create([
+                            'customer_id' => $customer_id,
+                            'email' => $email,
+                            'reason' => $cancellation_reason,
+                            'additional_comments' => $cancellation_comments,
+                        ]);
+                        
+                        \Log::info('Survey de cancelación guardado (sincronización post-Baremetrics)', [
+                            'customer_id' => $customer_id,
+                            'email' => $email,
+                            'reason' => $cancellation_reason
+                        ]);
+                    } catch (\Exception $e) {
+                        \Log::error('Error guardando survey (sincronización): ' . $e->getMessage());
+                        // No es crítico, continuar
+                    }
+                }
+                
+                // Actualizar GoHighLevel con el motivo de cancelación
+                if ($email && $cancellation_reason) {
+                    try {
+                        $ghlService = app(\App\Services\GoHighLevelService::class);
+                        $ghlContact = $ghlService->getContactsByExactEmail($email);
+                        
+                        if (empty($ghlContact['contacts'])) {
+                            $ghlContact = $ghlService->getContacts($email);
+                        }
+                        
+                        if (!empty($ghlContact['contacts'])) {
+                            $contactId = $ghlContact['contacts'][0]['id'];
+                            
+                            $customFields = [
+                                'UhyA0ol6XoETLRA5jsZa' => $cancellation_reason,
+                            ];
+                            
+                            if (!empty($cancellation_comments)) {
+                                $customFields['zYi50QSDZC6eGqoRH8Zm'] = $cancellation_comments;
+                            }
+                            
+                            $ghlService->updateContactCustomFields($contactId, $customFields);
+                            \Log::info('Motivo de cancelación actualizado en GHL (sincronización)', [
+                                'customer_id' => $customer_id,
+                                'email' => $email
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Error actualizando motivo en GHL (sincronización): ' . $e->getMessage());
+                        // No es crítico, continuar
+                    }
+                }
+                
+                // Retornar éxito - la cancelación ya fue hecha por Baremetrics
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Datos sincronizados correctamente. La cancelación ya fue procesada por Baremetrics.'
+                ]);
+            }
+
+            // CÓDIGO LEGACY: Solo para compatibilidad si alguien llama sin sync_only
+            // Esto NO debería ejecutarse normalmente porque Baremetrics maneja la cancelación
+            \Log::warning('cancelSubscriptionWithEmbed llamado sin sync_only - esto no debería pasar', [
+                'customer_id' => $customer_id,
+                'subscription_id' => $subscription_id
+            ]);
+
+            // Guardar el motivo de cancelación en la base de datos
+            if ($email && $cancellation_reason) {
+                try {
+                    CancellationSurvey::create([
+                        'customer_id' => $customer_id,
+                        'email' => $email,
+                        'reason' => $cancellation_reason,
+                        'additional_comments' => $cancellation_comments,
+                    ]);
+
+                    \Log::info('Survey de cancelación guardado desde embed', [
+                        'customer_id' => $customer_id,
+                        'email' => $email,
+                        'reason' => $cancellation_reason
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Error guardando survey de cancelación desde embed: ' . $e->getMessage());
+                }
+            }
+
+            // Actualizar custom fields en Baremetrics con el motivo y comentarios de cancelación
+            if ($cancellation_reason) {
+                try {
+                    $baremetricsData = [
+                        'cancellation_reason' => $cancellation_reason,
+                    ];
+                    
+                    if (!empty($cancellation_comments)) {
+                        $baremetricsData['cancellation_comments'] = $cancellation_comments;
+                    }
+                    
+                    $updateResult = $this->baremetricsService->updateCustomerAttributes($customer_id, $baremetricsData);
+                    
+                    if ($updateResult) {
+                        \Log::info('Custom fields de Baremetrics actualizados desde embed', [
+                            'customer_id' => $customer_id,
+                            'updated_fields' => array_keys($baremetricsData)
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Error actualizando custom fields en Baremetrics desde embed: ' . $e->getMessage());
+                }
+            }
+
+            // Registrar el motivo de cancelación en Barecancel Insights
+            if ($cancellation_reason) {
+                try {
+                    $barecancelResult = $this->baremetricsService->recordCancellationReason(
+                        $customer_id, 
+                        $cancellation_reason, 
+                        $cancellation_comments
+                    );
+                    
+                    if ($barecancelResult) {
+                        \Log::info('Motivo de cancelación registrado en Barecancel desde embed', [
+                            'customer_id' => $customer_id,
+                            'reason' => $cancellation_reason
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Error registrando motivo en Barecancel desde embed: ' . $e->getMessage());
+                }
+            }
+
+            // Actualizar el motivo de cancelación en GoHighLevel
+            if ($email && $cancellation_reason) {
+                try {
+                    $ghlService = app(\App\Services\GoHighLevelService::class);
+                    $ghlContact = $ghlService->getContactsByExactEmail($email);
+                    
+                    if (empty($ghlContact['contacts'])) {
+                        $ghlContact = $ghlService->getContacts($email);
+                    }
+                    
+                    if (!empty($ghlContact['contacts'])) {
+                        $contactId = $ghlContact['contacts'][0]['id'];
+                        
+                        $customFields = [
+                            'UhyA0ol6XoETLRA5jsZa' => $cancellation_reason,
+                        ];
+                        
+                        if (!empty($cancellation_comments)) {
+                            $customFields['zYi50QSDZC6eGqoRH8Zm'] = $cancellation_comments;
+                        }
+                        
+                        $ghlService->updateContactCustomFields($contactId, $customFields);
+                        \Log::info('Motivo de cancelación actualizado en GHL desde embed', [
+                            'customer_id' => $customer_id,
+                            'email' => $email
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Error actualizando motivo en GHL desde embed: ' . $e->getMessage());
+                }
+            }
+            
+            // Cancelar la suscripción en Stripe
+            $subscription->cancel();
+            
+            // Cancelar en Baremetrics también
+            try {
+                $sources = $this->baremetricsService->getSources();
+                if ($sources) {
+                    $sourceIds = [];
+                    if (is_array($sources) && isset($sources['sources']) && is_array($sources['sources'])) {
+                        $sourceIds = array_column($sources['sources'], 'id');
+                    } elseif (is_array($sources)) {
+                        $sourceIds = array_column($sources, 'id');
+                    }
+
+                    foreach ($sourceIds as $sourceId) {
+                        // Intentar obtener el OID de la suscripción desde Baremetrics
+                        try {
+                            $subscriptions = $this->baremetricsService->getSubscriptions($sourceId, '', 1);
+                            if ($subscriptions && isset($subscriptions['subscriptions'])) {
+                                foreach ($subscriptions['subscriptions'] as $bmSubscription) {
+                                    if (isset($bmSubscription['oid']) && $bmSubscription['oid'] === $subscription_id) {
+                                        $this->baremetricsService->deleteSubscription($sourceId, $bmSubscription['oid']);
+                                        break 2;
+                                    }
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            \Log::warning('No se pudo cancelar en Baremetrics desde embed: ' . $e->getMessage());
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                \Log::error('Error cancelando en Baremetrics desde embed: ' . $e->getMessage());
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'La suscripción ha sido cancelada correctamente.'
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Error al cancelar suscripción con embed: ' . $e->getMessage(), [
                 'customer_id' => $customer_id,
                 'subscription_id' => $subscription_id,
                 'trace' => $e->getTraceAsString()

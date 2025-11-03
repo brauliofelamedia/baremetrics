@@ -14,10 +14,13 @@ Route::prefix('gohighlevel')->group(function () {
     Route::get('cancellation/survey/{customer_id}', [CancellationController::class, 'surveyCancellation'])->name('cancellation.survey');
     Route::post('cancellation/survey/save', [CancellationController::class, 'surveyCancellationSave'])->name('cancellation.survey.save');
     Route::get('cancellation/verify', [CancellationController::class, 'verifyCancellationToken'])->name('cancellation.verify');
+    Route::get('cancellation/verify-embed', [CancellationController::class, 'verifyCancellationTokenEmbed'])->name('cancellation.verify.embed');
     Route::get('cancellation/send-verification', [CancellationController::class, 'sendCancellationVerification'])->name('cancellation.send.verification');
     Route::get('cancellation/customer-ghl', [CancellationController::class, 'cancellationCustomerGHL'])->name('cancellation.customer.ghl');
     Route::get('cancellation/manual/{customer_id?}/{subscription_id?}', [CancellationController::class, 'manualCancellation'])->name('cancellation.manual');
+    Route::get('cancellation/embed/{customer_id?}/{subscription_id?}', [CancellationController::class, 'embedCancellation'])->name('cancellation.embed');
     Route::post('cancellation/cancel', [CancellationController::class, 'publicCancelSubscription'])->name('cancellation.cancel');
+    Route::post('cancellation/cancel-embed', [CancellationController::class, 'cancelSubscriptionWithEmbed'])->name('cancellation.cancel.embed');
     Route::get('cancellation/search', [CancellationController::class, 'cancellationCustomerGHL'])->where('email', '.*');
 });
 
