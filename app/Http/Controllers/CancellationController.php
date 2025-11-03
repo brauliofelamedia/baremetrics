@@ -268,43 +268,83 @@ class CancellationController extends Controller
             });
             
             \Log::info('Correo principal enviado', [
-                'email' => $email,
-                'mail_failures' => Mail::failures()
+                'email' => $email
             ]);
             
             // Enviar copia a los administradores configurados
             $adminEmails = $this->getCancellationNotificationEmails();
-            if (!empty($adminEmails)) {
-                foreach ($adminEmails as $adminEmail) {
-                    Mail::send('emails.cancellation-verification', [
-                        'verificationUrl' => $verificationUrl,
-                        'email' => $email,
-                        'isAdminCopy' => true,
-                        'flowType' => $flowType
-                    ], function($message) use ($email, $adminEmail, $flowType) {
-                        $subject = $flowType === 'embed'
-                            ? 'COPIA ADMIN - Solicitud de cancelación (Embed): ' . $email
-                            : 'COPIA ADMIN - Solicitud de cancelación: ' . $email;
-                        $message->to($adminEmail)
-                            ->subject($subject);
-                    });
-                }
-                \Log::info('Correos de administradores enviados', [
-                    'admin_emails' => $adminEmails,
-                    'mail_failures' => Mail::failures()
+            \Log::info('Verificando correos de administradores', [
+                'admin_emails_count' => count($adminEmails),
+                'admin_emails' => $adminEmails,
+                'admin_emails_empty_check' => empty($adminEmails),
+                'user_email' => $email
+            ]);
+            
+            if (!empty($adminEmails) && count($adminEmails) > 0) {
+                \Log::info('Iniciando envío de correos a administradores', [
+                    'total_emails' => count($adminEmails),
+                    'emails' => $adminEmails
                 ]);
-            }
-            
-            $hasFailures = Mail::failures();
-            $success = empty($hasFailures);
-            
-            if ($hasFailures) {
-                \Log::warning('Fallo en envío de correos', [
-                    'failures' => $hasFailures
+                $adminEmailsSent = [];
+                $adminEmailsFailed = [];
+                
+                foreach ($adminEmails as $adminEmail) {
+                    try {
+                        Mail::send('emails.cancellation-verification', [
+                            'verificationUrl' => $verificationUrl,
+                            'email' => $email,
+                            'isAdminCopy' => true,
+                            'flowType' => $flowType
+                        ], function($message) use ($email, $adminEmail, $flowType) {
+                            $subject = $flowType === 'embed'
+                                ? 'COPIA ADMIN - Solicitud de cancelación (Embed): ' . $email
+                                : 'COPIA ADMIN - Solicitud de cancelación: ' . $email;
+                            $message->to($adminEmail)
+                                ->subject($subject);
+                        });
+                        
+                        $adminEmailsSent[] = $adminEmail;
+                        \Log::info('Correo de administrador enviado exitosamente', [
+                            'admin_email' => $adminEmail,
+                            'user_email' => $email
+                        ]);
+                    } catch (\Exception $adminMailError) {
+                        $adminEmailsFailed[] = $adminEmail;
+                        \Log::error('Error al enviar correo a administrador', [
+                            'admin_email' => $adminEmail,
+                            'user_email' => $email,
+                            'error' => $adminMailError->getMessage()
+                        ]);
+                    }
+                }
+                
+                \Log::info('Correos de administradores procesados', [
+                    'admin_emails_total' => count($adminEmails),
+                    'admin_emails_sent' => count($adminEmailsSent),
+                    'admin_emails_failed' => count($adminEmailsFailed),
+                    'admin_emails_sent_list' => $adminEmailsSent,
+                    'admin_emails_failed_list' => $adminEmailsFailed
                 ]);
             } else {
-                \Log::info('Todos los correos enviados exitosamente');
+                \Log::warning('No se enviaron correos a administradores - lista vacía o no configurada', [
+                    'admin_emails_count' => count($adminEmails),
+                    'admin_emails' => $adminEmails
+                ]);
             }
+            
+            // Verificar si hubo errores en el envío de correos a administradores
+            $success = true;
+            if (isset($adminEmailsFailed) && !empty($adminEmailsFailed)) {
+                \Log::warning('Algunos correos de administradores fallaron', [
+                    'failed_emails' => $adminEmailsFailed
+                ]);
+                // No marcamos como fallido completamente si el correo principal se envió
+            }
+            
+            \Log::info('Proceso de envío de correos completado', [
+                'user_email' => $email,
+                'success' => $success
+            ]);
             
             return $success;
         } catch (\Exception $e) {
@@ -1334,7 +1374,19 @@ class CancellationController extends Controller
      */
     private function getCancellationNotificationEmails()
     {
-        $emailsString = env('CANCELLATION_NOTIFICATION_EMAILS', '');
+        // Intentar obtener desde config primero (recomendado en Laravel), luego desde env
+        $emailsString = config('mail.cancellation_notification_emails', '');
+        
+        if (empty($emailsString)) {
+            // Fallback a env() si no está en config
+            $emailsString = env('CANCELLATION_NOTIFICATION_EMAILS', '');
+        }
+        
+        \Log::info('Leyendo CANCELLATION_NOTIFICATION_EMAILS', [
+            'emails_string' => $emailsString,
+            'from_config' => !empty(config('mail.cancellation_notification_emails', '')),
+            'from_env' => !empty(env('CANCELLATION_NOTIFICATION_EMAILS', ''))
+        ]);
         
         if (empty($emailsString)) {
             \Log::warning('No hay correos configurados para notificaciones de cancelación');
@@ -1353,7 +1405,8 @@ class CancellationController extends Controller
         $validEmails = array_unique($validEmails);
         
         \Log::info('Correos de notificación de cancelación configurados', [
-            'emails' => $validEmails,
+            'emails_raw' => $emails,
+            'emails_valid' => $validEmails,
             'total' => count($validEmails)
         ]);
         
