@@ -1490,6 +1490,7 @@ class CancellationController extends Controller
     {
         $customer_id = $request->get('customer_id');
         $subscription_id = $request->get('subscription_id');
+        $baremetrics_subscription_oid = $request->get('baremetrics_subscription_oid');
         $cancellation_reason = $request->get('cancellation_reason', '');
         $cancellation_comments = $request->get('cancellation_comments', '');
         $barecancel_data = $request->get('barecancel_data', '');
@@ -1498,10 +1499,11 @@ class CancellationController extends Controller
         \Log::info('Procesando con embed de Baremetrics', [
             'customer_id' => $customer_id,
             'subscription_id' => $subscription_id,
+            'baremetrics_subscription_oid' => $baremetrics_subscription_oid,
             'sync_only' => $sync_only,
             'has_reason' => !empty($cancellation_reason),
             'has_comments' => !empty($cancellation_comments),
-            'note' => $sync_only ? 'Solo sincronización - Baremetrics ya canceló' : 'Cancelación manual (no debería pasar)'
+            'note' => $sync_only ? 'Sincronización y cancelación en Stripe' : 'Cancelación manual (legacy)'
         ]);
 
         try {
@@ -1509,15 +1511,16 @@ class CancellationController extends Controller
             $email = session('cancellation_email');
             $customer = session('cancellation_customer');
 
-            // IMPORTANTE: Si sync_only es true, Baremetrics YA canceló la suscripción
-            // Solo necesitamos sincronizar datos, NO cancelar
+            // IMPORTANTE: Si sync_only es true, Baremetrics canceló en su sistema
+            // Pero necesitamos cancelar también en Stripe
             if ($sync_only) {
-                \Log::info('Sincronización después de cancelación automática de Baremetrics', [
+                \Log::info('Sincronización después de cancelación de Baremetrics - Cancelando en Stripe', [
                     'customer_id' => $customer_id,
-                    'email' => $email
+                    'email' => $email,
+                    'subscription_id' => $subscription_id
                 ]);
                 
-                // Solo guardar el motivo de cancelación en nuestra BD para registro
+                // Guardar el motivo de cancelación en nuestra BD para registro
                 if ($email && $cancellation_reason) {
                     try {
                         CancellationSurvey::create([
@@ -1535,6 +1538,50 @@ class CancellationController extends Controller
                     } catch (\Exception $e) {
                         \Log::error('Error guardando survey (sincronización): ' . $e->getMessage());
                         // No es crítico, continuar
+                    }
+                }
+                
+                // Actualizar custom fields en Baremetrics con el motivo y comentarios de cancelación
+                if ($cancellation_reason) {
+                    try {
+                        $baremetricsData = [
+                            'cancellation_reason' => $cancellation_reason,
+                        ];
+                        
+                        if (!empty($cancellation_comments)) {
+                            $baremetricsData['cancellation_comments'] = $cancellation_comments;
+                        }
+                        
+                        $updateResult = $this->baremetricsService->updateCustomerAttributes($customer_id, $baremetricsData);
+                        
+                        if ($updateResult) {
+                            \Log::info('Custom fields de Baremetrics actualizados desde embed (sincronización)', [
+                                'customer_id' => $customer_id,
+                                'updated_fields' => array_keys($baremetricsData)
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Error actualizando custom fields en Baremetrics desde embed (sincronización): ' . $e->getMessage());
+                    }
+                }
+                
+                // Registrar el motivo de cancelación en Barecancel Insights
+                if ($cancellation_reason) {
+                    try {
+                        $barecancelResult = $this->baremetricsService->recordCancellationReason(
+                            $customer_id, 
+                            $cancellation_reason, 
+                            $cancellation_comments
+                        );
+                        
+                        if ($barecancelResult) {
+                            \Log::info('Motivo de cancelación registrado en Barecancel desde embed (sincronización)', [
+                                'customer_id' => $customer_id,
+                                'reason' => $cancellation_reason
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Error registrando motivo en Barecancel desde embed (sincronización): ' . $e->getMessage());
                     }
                 }
                 
@@ -1571,10 +1618,89 @@ class CancellationController extends Controller
                     }
                 }
                 
-                // Retornar éxito - la cancelación ya fue hecha por Baremetrics
+                // IMPORTANTE: Cancelar la suscripción en Stripe
+                // El subscription_id puede ser el ID de Stripe o el OID de Baremetrics
+                $stripeSubscriptionId = null;
+                
+                // Intentar obtener el ID de Stripe de la suscripción
+                // Primero verificar si subscription_id es un ID de Stripe
+                if (!empty($subscription_id) && strpos($subscription_id, 'sub_') === 0) {
+                    $stripeSubscriptionId = $subscription_id;
+                    \Log::info('Subscription ID es de Stripe', [
+                        'subscription_id' => $subscription_id
+                    ]);
+                } else {
+                    // No es un ID de Stripe, buscar la suscripción en Stripe usando el customer_id
+                    \Log::info('Buscando suscripción activa en Stripe', [
+                        'subscription_id' => $subscription_id,
+                        'baremetrics_subscription_oid' => $baremetrics_subscription_oid,
+                        'customer_id' => $customer_id
+                    ]);
+                    
+                    try {
+                        // Buscar todas las suscripciones activas del cliente en Stripe
+                        $allSubscriptions = \Stripe\Subscription::all([
+                            'customer' => $customer_id,
+                            'status' => 'all',
+                            'limit' => 100
+                        ]);
+                        
+                        // Buscar la suscripción activa (puede haber múltiples)
+                        foreach ($allSubscriptions->data as $stripeSubscription) {
+                            if (in_array($stripeSubscription->status, ['active', 'trialing'])) {
+                                $stripeSubscriptionId = $stripeSubscription->id;
+                                \Log::info('Suscripción activa encontrada en Stripe', [
+                                    'stripe_subscription_id' => $stripeSubscriptionId,
+                                    'status' => $stripeSubscription->status
+                                ]);
+                                break; // Usar la primera suscripción activa encontrada
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Error buscando suscripción en Stripe: ' . $e->getMessage(), [
+                            'customer_id' => $customer_id,
+                            'subscription_id' => $subscription_id,
+                            'baremetrics_subscription_oid' => $baremetrics_subscription_oid
+                        ]);
+                    }
+                }
+                
+                // Cancelar en Stripe si encontramos la suscripción
+                if ($stripeSubscriptionId) {
+                    try {
+                        $stripeResult = $this->stripeService->cancelActiveSubscription($customer_id, $stripeSubscriptionId);
+                        
+                        if ($stripeResult['success']) {
+                            \Log::info('Suscripción cancelada exitosamente en Stripe después del embed', [
+                                'customer_id' => $customer_id,
+                                'stripe_subscription_id' => $stripeSubscriptionId,
+                                'cancellation_details' => $stripeResult['data'] ?? null
+                            ]);
+                        } else {
+                            \Log::error('Error cancelando suscripción en Stripe después del embed', [
+                                'customer_id' => $customer_id,
+                                'stripe_subscription_id' => $stripeSubscriptionId,
+                                'error' => $stripeResult['error'] ?? 'Error desconocido'
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Excepción al cancelar suscripción en Stripe después del embed: ' . $e->getMessage(), [
+                            'customer_id' => $customer_id,
+                            'stripe_subscription_id' => $stripeSubscriptionId,
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                    }
+                } else {
+                    \Log::warning('No se pudo determinar el ID de suscripción de Stripe para cancelar', [
+                        'customer_id' => $customer_id,
+                        'subscription_id' => $subscription_id
+                    ]);
+                }
+                
+                // Retornar éxito
                 return response()->json([
                     'success' => true,
-                    'message' => 'Datos sincronizados correctamente. La cancelación ya fue procesada por Baremetrics.'
+                    'message' => 'Datos sincronizados y suscripción cancelada en Stripe correctamente.'
                 ]);
             }
 
@@ -1682,7 +1808,49 @@ class CancellationController extends Controller
             }
             
             // Cancelar la suscripción en Stripe
-            $subscription->cancel();
+            // Obtener el ID de Stripe de la suscripción
+            $stripeSubscriptionId = null;
+            
+            if (!empty($subscription_id)) {
+                // Verificar si es un ID de Stripe (empieza con sub_)
+                if (strpos($subscription_id, 'sub_') === 0) {
+                    $stripeSubscriptionId = $subscription_id;
+                } else {
+                    // Es probablemente un OID de Baremetrics, buscar la suscripción en Stripe
+                    try {
+                        $allSubscriptions = \Stripe\Subscription::all([
+                            'customer' => $customer_id,
+                            'status' => 'all',
+                            'limit' => 100
+                        ]);
+                        
+                        foreach ($allSubscriptions->data as $stripeSubscription) {
+                            if (in_array($stripeSubscription->status, ['active', 'trialing'])) {
+                                $stripeSubscriptionId = $stripeSubscription->id;
+                                break;
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        \Log::error('Error buscando suscripción en Stripe (legacy): ' . $e->getMessage());
+                    }
+                }
+            }
+            
+            if ($stripeSubscriptionId) {
+                try {
+                    $stripeResult = $this->stripeService->cancelActiveSubscription($customer_id, $stripeSubscriptionId);
+                    if (!$stripeResult['success']) {
+                        \Log::error('Error cancelando suscripción en Stripe (legacy): ' . ($stripeResult['error'] ?? 'Error desconocido'));
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Excepción al cancelar suscripción en Stripe (legacy): ' . $e->getMessage());
+                }
+            } else {
+                \Log::warning('No se pudo determinar el ID de suscripción de Stripe para cancelar (legacy)', [
+                    'customer_id' => $customer_id,
+                    'subscription_id' => $subscription_id
+                ]);
+            }
             
             // Cancelar en Baremetrics también
             try {
