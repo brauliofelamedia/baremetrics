@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Cancellation;
+use App\Models\CancellationSurvey;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Carbon\Carbon;
@@ -45,5 +46,46 @@ class AdminController extends Controller
         if ($totalUsers == 0) return 0;
         
         return round(($cancellations / $totalUsers) * 100, 1);
+    }
+
+    /**
+     * Listar todos los surveys de cancelación
+     */
+    public function cancellationSurveysIndex(Request $request)
+    {
+        $query = CancellationSurvey::query();
+
+        // Filtro por email
+        if ($request->has('email') && $request->email) {
+            $query->where('email', 'like', '%' . $request->email . '%');
+        }
+
+        // Filtro por motivo
+        if ($request->has('reason') && $request->reason) {
+            $query->where('reason', 'like', '%' . $request->reason . '%');
+        }
+
+        // Filtro por fecha
+        if ($request->has('date_from') && $request->date_from) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->has('date_to') && $request->date_to) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $surveys = $query->orderBy('created_at', 'desc')->paginate(20);
+
+        return view('admin.cancellation-surveys.index', compact('surveys'));
+    }
+
+    /**
+     * Ver detalle de un survey de cancelación
+     */
+    public function cancellationSurveysShow($id)
+    {
+        $survey = CancellationSurvey::findOrFail($id);
+
+        return view('admin.cancellation-surveys.show', compact('survey'));
     }
 }

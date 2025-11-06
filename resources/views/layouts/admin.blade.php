@@ -364,10 +364,10 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.cancellation-tokens.*') ? 'active' : '' }}" 
-                           href="{{ route('admin.cancellation-tokens') }}">
-                            <i class="fas fa-key"></i>
-                            Tokens de Cancelación
+                        <a class="nav-link {{ request()->routeIs('admin.cancellation-surveys.*') ? 'active' : '' }}" 
+                           href="{{ route('admin.cancellation-surveys.index') }}">
+                            <i class="fas fa-clipboard-list"></i>
+                            Resumen de encuestas
                         </a>
                     </li>
                 

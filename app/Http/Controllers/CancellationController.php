@@ -25,6 +25,74 @@ class CancellationController extends Controller
     }
 
     /**
+     * Obtener el ID de Stripe del cliente
+     * 
+     * @param string $customer_id ID del cliente (puede ser de Stripe o Baremetrics)
+     * @param string|null $email Email del cliente para búsqueda alternativa
+     * @return string|null ID de Stripe del cliente o null si no se encuentra
+     */
+    private function getStripeCustomerId($customer_id, $email = null)
+    {
+        // Si el customer_id ya es un ID de Stripe (empieza con cus_)
+        if (!empty($customer_id) && strpos($customer_id, 'cus_') === 0) {
+            return $customer_id;
+        }
+
+        $stripeCustomerId = null;
+
+        // Intentar buscar por email en Stripe
+        if (!empty($email)) {
+            try {
+                $stripeCustomers = \Stripe\Customer::all([
+                    'email' => $email,
+                    'limit' => 1
+                ]);
+
+                if (!empty($stripeCustomers->data)) {
+                    $stripeCustomerId = $stripeCustomers->data[0]->id;
+                    \Log::info('ID de Stripe encontrado por email', [
+                        'email' => $email,
+                        'stripe_customer_id' => $stripeCustomerId
+                    ]);
+                    return $stripeCustomerId;
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Error buscando cliente en Stripe por email', [
+                    'email' => $email,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        // Intentar buscar usando el customer_id directamente (por si acaso es un ID de Stripe que no empieza con cus_)
+        if (!empty($customer_id)) {
+            try {
+                $stripeCustomer = \Stripe\Customer::retrieve($customer_id);
+                if ($stripeCustomer && isset($stripeCustomer->id)) {
+                    $stripeCustomerId = $stripeCustomer->id;
+                    \Log::info('ID de Stripe encontrado usando customer_id directamente', [
+                        'customer_id' => $customer_id,
+                        'stripe_customer_id' => $stripeCustomerId
+                    ]);
+                    return $stripeCustomerId;
+                }
+            } catch (\Exception $e) {
+                // No es un ID de Stripe válido, continuar
+                \Log::debug('customer_id no es un ID de Stripe válido', [
+                    'customer_id' => $customer_id
+                ]);
+            }
+        }
+
+        \Log::warning('No se pudo obtener ID de Stripe del cliente', [
+            'customer_id' => $customer_id,
+            'email' => $email
+        ]);
+
+        return null;
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
@@ -1523,8 +1591,12 @@ class CancellationController extends Controller
                 // Guardar el motivo de cancelación en nuestra BD para registro
                 if ($email && $cancellation_reason) {
                     try {
+                        // Obtener el ID de Stripe del cliente
+                        $stripeCustomerId = $this->getStripeCustomerId($customer_id, $email);
+                        
                         CancellationSurvey::create([
                             'customer_id' => $customer_id,
+                            'stripe_customer_id' => $stripeCustomerId,
                             'email' => $email,
                             'reason' => $cancellation_reason,
                             'additional_comments' => $cancellation_comments,
@@ -1714,8 +1786,12 @@ class CancellationController extends Controller
             // Guardar el motivo de cancelación en la base de datos
             if ($email && $cancellation_reason) {
                 try {
+                    // Obtener el ID de Stripe del cliente
+                    $stripeCustomerId = $this->getStripeCustomerId($customer_id, $email);
+                    
                     CancellationSurvey::create([
                         'customer_id' => $customer_id,
+                        'stripe_customer_id' => $stripeCustomerId,
                         'email' => $email,
                         'reason' => $cancellation_reason,
                         'additional_comments' => $cancellation_comments,
@@ -2108,8 +2184,12 @@ class CancellationController extends Controller
 
         // Guardar el survey en la base de datos
         try {
+            // Obtener el ID de Stripe del cliente
+            $stripeCustomerId = $this->getStripeCustomerId($customer_id, $email);
+            
             CancellationSurvey::create([
                 'customer_id' => $customer_id,
+                'stripe_customer_id' => $stripeCustomerId,
                 'email' => $email,
                 'reason' => $reason,
                 'additional_comments' => $additional_comments,

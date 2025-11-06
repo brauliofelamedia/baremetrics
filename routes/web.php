@@ -82,6 +82,10 @@ Route::middleware(['auth', 'role:Admin'])->prefix('admin')->name('admin.')->grou
     // Gestión administrativa de tokens de cancelación
     Route::get('cancellation-tokens', [App\Http\Controllers\CancellationController::class, 'adminTokens'])->name('cancellation-tokens');
     Route::post('cancellation-tokens/invalidate', [App\Http\Controllers\CancellationController::class, 'invalidateToken'])->name('cancellation-tokens.invalidate');
+    
+    // Surveys de cancelación (solo lectura)
+    Route::get('cancellation-surveys', [AdminController::class, 'cancellationSurveysIndex'])->name('cancellation-surveys.index');
+    Route::get('cancellation-surveys/{id}', [AdminController::class, 'cancellationSurveysShow'])->name('cancellation-surveys.show');
 
     //GoHighLevel
     Route::prefix('ghlevel')->name('ghlevel.')->group(function () {

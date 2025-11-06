@@ -8,6 +8,7 @@ class CancellationSurvey extends Model
 {
     protected $fillable = [
         'customer_id',
+        'stripe_customer_id',
         'email',
         'reason',
         'comment',
