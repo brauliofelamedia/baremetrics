@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\CancellationToken;
 use App\Models\CancellationSurvey;
+use App\Models\CancellationTracking;
 
 class CancellationController extends Controller
 {
@@ -806,6 +807,24 @@ class CancellationController extends Controller
             ]);
             
             if ($mailSent) {
+                // Rastrear que se solicitó el correo de cancelación
+                try {
+                    $tracking = CancellationTracking::getOrCreateByEmail($email, $token);
+                    $tracking->markEmailRequested($token);
+                    \Log::info('Seguimiento de cancelación: correo solicitado', [
+                        'email' => $email,
+                        'tracking_id' => $tracking->id
+                    ]);
+                    
+                    // Enviar correo de resumen a administradores
+                    $this->sendCancellationSummaryEmail($tracking, 'email_requested');
+                } catch (\Exception $trackingError) {
+                    \Log::error('Error al rastrear solicitud de correo de cancelación', [
+                        'email' => $email,
+                        'error' => $trackingError->getMessage()
+                    ]);
+                }
+
                 \Log::info('Correo enviado exitosamente, mostrando vista de confirmación', ['email' => $email]);
                 return view('cancellation.verification-sent', [
                     'email' => $email
@@ -882,6 +901,31 @@ class CancellationController extends Controller
             'cancellation_customer_id' => $customerId,
             'cancellation_email' => $email
         ]);
+
+        // Rastrear que el usuario vio la encuesta
+        try {
+            $tracking = CancellationTracking::where('token', $token)
+                ->orWhere('email', $email)
+                ->latest()
+                ->first();
+            
+            if ($tracking) {
+                $tracking->markSurveyViewed($customerId);
+                \Log::info('Seguimiento de cancelación: encuesta vista', [
+                    'email' => $email,
+                    'customer_id' => $customerId,
+                    'tracking_id' => $tracking->id
+                ]);
+                
+                // Enviar correo de resumen a administradores
+                $this->sendCancellationSummaryEmail($tracking, 'survey_viewed');
+            }
+        } catch (\Exception $trackingError) {
+            \Log::error('Error al rastrear visualización de encuesta', [
+                'email' => $email,
+                'error' => $trackingError->getMessage()
+            ]);
+        }
 
         // Redirigir directamente a la survey con los datos del cliente
         return redirect()->route('cancellation.survey', ['customer_id' => $customerId]);
@@ -1249,6 +1293,31 @@ class CancellationController extends Controller
             'cancellation_active_subscriptions' => $activeSubscriptions
         ]);
 
+        // Rastrear que el usuario vio la encuesta (embed)
+        try {
+            $tracking = CancellationTracking::where('token', $token)
+                ->orWhere('email', $email)
+                ->latest()
+                ->first();
+            
+            if ($tracking) {
+                $tracking->markSurveyViewed($customerId);
+                \Log::info('Seguimiento de cancelación: encuesta vista (embed)', [
+                    'email' => $email,
+                    'customer_id' => $customerId,
+                    'tracking_id' => $tracking->id
+                ]);
+                
+                // Enviar correo de resumen a administradores
+                $this->sendCancellationSummaryEmail($tracking, 'survey_viewed');
+            }
+        } catch (\Exception $trackingError) {
+            \Log::error('Error al rastrear visualización de encuesta (embed)', [
+                'email' => $email,
+                'error' => $trackingError->getMessage()
+            ]);
+        }
+
         // Si hay solo una suscripción activa, redirigimos directamente al embed
         if (count($activeSubscriptions) === 1) {
             $subscription = $activeSubscriptions[0];
@@ -1479,6 +1548,104 @@ class CancellationController extends Controller
         ]);
         
         return array_values($validEmails);
+    }
+
+    /**
+     * Envía un correo de resumen del proceso de cancelación a los administradores
+     * 
+     * @param CancellationTracking $tracking El registro de seguimiento
+     * @param string $triggerEvent El evento que desencadenó el envío del correo
+     */
+    private function sendCancellationSummaryEmail(CancellationTracking $tracking, string $triggerEvent = 'status_update')
+    {
+        try {
+            $adminEmails = $this->getCancellationNotificationEmails();
+            
+            if (empty($adminEmails)) {
+                \Log::warning('No hay correos de administrador configurados para enviar resumen de cancelación', [
+                    'tracking_id' => $tracking->id,
+                    'email' => $tracking->email
+                ]);
+                return false;
+            }
+
+            $status = $tracking->getCurrentStatus();
+            
+            \Log::info('Enviando correo de resumen de cancelación a administradores', [
+                'tracking_id' => $tracking->id,
+                'email' => $tracking->email,
+                'status' => $status,
+                'trigger_event' => $triggerEvent,
+                'admin_emails_count' => count($adminEmails)
+            ]);
+
+            $adminEmailsSent = [];
+            $adminEmailsFailed = [];
+
+            foreach ($adminEmails as $adminEmail) {
+                try {
+                    Mail::send('emails.cancellation-summary', [
+                        'tracking' => $tracking,
+                        'status' => $status,
+                        'triggerEvent' => $triggerEvent
+                    ], function($message) use ($tracking, $adminEmail, $status) {
+                        $statusText = $this->getStatusText($status);
+                        $subject = "Resumen de Cancelación - {$tracking->email} - {$statusText}";
+                        $message->to($adminEmail)
+                            ->subject($subject);
+                    });
+
+                    $adminEmailsSent[] = $adminEmail;
+                    \Log::info('Correo de resumen enviado exitosamente a administrador', [
+                        'admin_email' => $adminEmail,
+                        'user_email' => $tracking->email,
+                        'tracking_id' => $tracking->id
+                    ]);
+                } catch (\Exception $mailError) {
+                    $adminEmailsFailed[] = $adminEmail;
+                    \Log::error('Error al enviar correo de resumen a administrador', [
+                        'admin_email' => $adminEmail,
+                        'user_email' => $tracking->email,
+                        'error' => $mailError->getMessage()
+                    ]);
+                }
+            }
+
+            \Log::info('Correos de resumen procesados', [
+                'total' => count($adminEmails),
+                'sent' => count($adminEmailsSent),
+                'failed' => count($adminEmailsFailed),
+                'tracking_id' => $tracking->id
+            ]);
+
+            return count($adminEmailsSent) > 0;
+        } catch (\Exception $e) {
+            \Log::error('Error al enviar correo de resumen de cancelación', [
+                'tracking_id' => $tracking->id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene el texto descriptivo del estado
+     */
+    private function getStatusText(string $status): string
+    {
+        $statusMap = [
+            'not_started' => 'No Iniciado',
+            'email_requested' => 'Correo Solicitado',
+            'survey_viewed' => 'Encuesta Vista',
+            'survey_completed' => 'Encuesta Completada',
+            'baremetrics_cancelled' => 'Cancelado en Baremetrics',
+            'stripe_cancelled' => 'Cancelado en Stripe',
+            'cancelled_both' => 'Cancelaciones Completadas',
+            'completed' => 'Proceso Completo'
+        ];
+
+        return $statusMap[$status] ?? 'Estado Desconocido';
     }
 
     /**
@@ -1743,6 +1910,44 @@ class CancellationController extends Controller
                         $stripeResult = $this->stripeService->cancelActiveSubscription($customer_id, $stripeSubscriptionId);
                         
                         if ($stripeResult['success']) {
+                            // Rastrear cancelación en Stripe (embed)
+                            try {
+                                if ($email) {
+                                    $tracking = CancellationTracking::where('email', $email)
+                                        ->latest()
+                                        ->first();
+                                    
+                                    if ($tracking) {
+                                        $details = json_encode([
+                                            'subscription_id' => $stripeSubscriptionId,
+                                            'details' => $stripeResult['data'] ?? null,
+                                            'source' => 'embed'
+                                        ]);
+                                        $tracking->markStripeCancelled($details);
+                                        \Log::info('Seguimiento de cancelación: cancelado en Stripe (embed)', [
+                                            'email' => $email,
+                                            'customer_id' => $customer_id,
+                                            'subscription_id' => $stripeSubscriptionId,
+                                            'tracking_id' => $tracking->id
+                                        ]);
+                                        
+                                        // Enviar correo de resumen a administradores
+                                        $this->sendCancellationSummaryEmail($tracking, 'stripe_cancelled');
+                                        
+                                        // Verificar si el proceso está completo y enviar correo final
+                                        $tracking->refresh(); // Recargar para obtener el estado actualizado
+                                        if ($tracking->process_completed) {
+                                            $this->sendCancellationSummaryEmail($tracking, 'process_completed');
+                                        }
+                                    }
+                                }
+                            } catch (\Exception $trackingError) {
+                                \Log::error('Error al rastrear cancelación en Stripe (embed)', [
+                                    'email' => $email,
+                                    'error' => $trackingError->getMessage()
+                                ]);
+                            }
+                            
                             \Log::info('Suscripción cancelada exitosamente en Stripe después del embed', [
                                 'customer_id' => $customer_id,
                                 'stripe_subscription_id' => $stripeSubscriptionId,
@@ -2022,6 +2227,48 @@ class CancellationController extends Controller
             }
         }
 
+        // Rastrear que el usuario vio la encuesta (si no se rastreó antes)
+        try {
+            $email = session('cancellation_email') ?? ($customer['email'] ?? null);
+            if ($email) {
+                $tracking = CancellationTracking::where('email', $email)
+                    ->latest()
+                    ->first();
+                
+                if ($tracking && !$tracking->survey_viewed) {
+                    $tracking->markSurveyViewed($customer_id);
+                    \Log::info('Seguimiento de cancelación: encuesta vista (directo)', [
+                        'email' => $email,
+                        'customer_id' => $customer_id,
+                        'tracking_id' => $tracking->id
+                    ]);
+                    
+                    // Enviar correo de resumen a administradores
+                    $this->sendCancellationSummaryEmail($tracking, 'survey_viewed');
+                } elseif (!$tracking) {
+                    // Crear nuevo registro si no existe
+                    $tracking = CancellationTracking::create([
+                        'email' => $email,
+                        'customer_id' => $customer_id,
+                    ]);
+                    $tracking->markSurveyViewed($customer_id);
+                    \Log::info('Seguimiento de cancelación: nuevo registro creado al ver encuesta', [
+                        'email' => $email,
+                        'customer_id' => $customer_id,
+                        'tracking_id' => $tracking->id
+                    ]);
+                    
+                    // Enviar correo de resumen a administradores
+                    $this->sendCancellationSummaryEmail($tracking, 'survey_viewed');
+                }
+            }
+        } catch (\Exception $trackingError) {
+            \Log::error('Error al rastrear visualización de encuesta (directo)', [
+                'customer_id' => $customer_id,
+                'error' => $trackingError->getMessage()
+            ]);
+        }
+
         return view('cancellation.survey', compact('customer_id', 'customer'));
     }
 
@@ -2195,6 +2442,49 @@ class CancellationController extends Controller
                 'additional_comments' => $additional_comments,
             ]);
 
+            // Rastrear que el usuario completó la encuesta
+            try {
+                if ($email) {
+                    $tracking = CancellationTracking::where('email', $email)
+                        ->latest()
+                        ->first();
+                    
+                    if ($tracking) {
+                        $tracking->markSurveyCompleted($customer_id, $stripeCustomerId);
+                        \Log::info('Seguimiento de cancelación: encuesta completada', [
+                            'email' => $email,
+                            'customer_id' => $customer_id,
+                            'tracking_id' => $tracking->id
+                        ]);
+                        
+                        // Enviar correo de resumen a administradores
+                        $this->sendCancellationSummaryEmail($tracking, 'survey_completed');
+                    } else {
+                        // Crear nuevo registro si no existe
+                        $tracking = CancellationTracking::create([
+                            'email' => $email,
+                            'customer_id' => $customer_id,
+                            'stripe_customer_id' => $stripeCustomerId,
+                        ]);
+                        $tracking->markSurveyCompleted($customer_id, $stripeCustomerId);
+                        \Log::info('Seguimiento de cancelación: nuevo registro creado al completar encuesta', [
+                            'email' => $email,
+                            'customer_id' => $customer_id,
+                            'tracking_id' => $tracking->id
+                        ]);
+                        
+                        // Enviar correo de resumen a administradores
+                        $this->sendCancellationSummaryEmail($tracking, 'survey_completed');
+                    }
+                }
+            } catch (\Exception $trackingError) {
+                \Log::error('Error al rastrear completación de encuesta', [
+                    'email' => $email,
+                    'customer_id' => $customer_id,
+                    'error' => $trackingError->getMessage()
+                ]);
+            }
+
             \Log::info('Survey de cancelación guardado', [
                 'customer_id' => $customer_id,
                 'email' => $email,
@@ -2367,6 +2657,44 @@ class CancellationController extends Controller
                             'stripe' => 'success',
                             'stripe_details' => $stripeResult['data']
                         ];
+                        
+                        // Rastrear cancelación en Stripe
+                        try {
+                            if ($email) {
+                                $tracking = CancellationTracking::where('email', $email)
+                                    ->latest()
+                                    ->first();
+                                
+                                if ($tracking) {
+                                    $details = json_encode([
+                                        'subscription_id' => $subscriptionId,
+                                        'details' => $stripeResult['data'] ?? null
+                                    ]);
+                                    $tracking->markStripeCancelled($details);
+                                    \Log::info('Seguimiento de cancelación: cancelado en Stripe', [
+                                        'email' => $email,
+                                        'customer_id' => $customer_id,
+                                        'subscription_id' => $subscriptionId,
+                                        'tracking_id' => $tracking->id
+                                    ]);
+                                    
+                                    // Enviar correo de resumen a administradores
+                                    $this->sendCancellationSummaryEmail($tracking, 'stripe_cancelled');
+                                    
+                                    // Verificar si el proceso está completo y enviar correo final
+                                    $tracking->refresh(); // Recargar para obtener el estado actualizado
+                                    if ($tracking->process_completed) {
+                                        $this->sendCancellationSummaryEmail($tracking, 'process_completed');
+                                    }
+                                }
+                            }
+                        } catch (\Exception $trackingError) {
+                            \Log::error('Error al rastrear cancelación en Stripe', [
+                                'email' => $email,
+                                'error' => $trackingError->getMessage()
+                            ]);
+                        }
+                        
                         \Log::info('Suscripción cancelada en Stripe', [
                             'customer_id' => $customer_id,
                             'subscription_id' => $subscriptionId
@@ -2422,6 +2750,45 @@ class CancellationController extends Controller
                                             break;
                                         }
                                     }
+                                    
+                                    // Rastrear cancelación en Baremetrics
+                                    try {
+                                        if ($email) {
+                                            $tracking = CancellationTracking::where('email', $email)
+                                                ->latest()
+                                                ->first();
+                                            
+                                            if ($tracking) {
+                                                $details = json_encode([
+                                                    'subscription_oid' => $subscriptionData['subscription']['oid'],
+                                                    'source_id' => $sourceId,
+                                                    'subscription_id' => $subscriptionId
+                                                ]);
+                                                $tracking->markBaremetricsCancelled($details);
+                                                \Log::info('Seguimiento de cancelación: cancelado en Baremetrics', [
+                                                    'email' => $email,
+                                                    'customer_id' => $customer_id,
+                                                    'subscription_id' => $subscriptionId,
+                                                    'tracking_id' => $tracking->id
+                                                ]);
+                                                
+                                                // Enviar correo de resumen a administradores
+                                                $this->sendCancellationSummaryEmail($tracking, 'baremetrics_cancelled');
+                                                
+                                                // Verificar si el proceso está completo y enviar correo final
+                                                $tracking->refresh(); // Recargar para obtener el estado actualizado
+                                                if ($tracking->process_completed) {
+                                                    $this->sendCancellationSummaryEmail($tracking, 'process_completed');
+                                                }
+                                            }
+                                        }
+                                    } catch (\Exception $trackingError) {
+                                        \Log::error('Error al rastrear cancelación en Baremetrics', [
+                                            'email' => $email,
+                                            'error' => $trackingError->getMessage()
+                                        ]);
+                                    }
+                                    
                                     \Log::info('Suscripción cancelada en Baremetrics', [
                                         'customer_id' => $customer_id,
                                         'subscription_id' => $subscriptionId,

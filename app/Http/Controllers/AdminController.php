@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Cancellation;
 use App\Models\CancellationSurvey;
+use App\Models\CancellationTracking;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Carbon\Carbon;
@@ -74,9 +75,101 @@ class AdminController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
+        // Filtro por estado del proceso (usando whereIn con emails)
+        if ($request->has('status') && $request->status) {
+            $status = $request->status;
+            $trackingQuery = CancellationTracking::query();
+            
+            if ($status === 'completed') {
+                $trackingQuery->where('process_completed', true);
+            } elseif ($status === 'incomplete') {
+                $trackingQuery->where('process_completed', false);
+            } elseif ($status === 'email_only') {
+                $trackingQuery->where('email_requested', true)
+                      ->where('survey_viewed', false);
+            } elseif ($status === 'survey_viewed') {
+                $trackingQuery->where('survey_viewed', true)
+                      ->where('survey_completed', false);
+            } elseif ($status === 'survey_completed') {
+                $trackingQuery->where('survey_completed', true)
+                      ->where(function($q) {
+                          $q->where('baremetrics_cancelled', false)
+                                ->orWhere('stripe_cancelled', false);
+                      });
+            }
+            
+            $emails = $trackingQuery->pluck('email')->filter();
+            if ($emails->isNotEmpty()) {
+                $query->whereIn('email', $emails);
+            } else {
+                // Si no hay emails, no mostrar resultados
+                $query->whereRaw('1 = 0');
+            }
+        }
+
         $surveys = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        return view('admin.cancellation-surveys.index', compact('surveys'));
+        // Obtener estadísticas del tracking
+        $stats = $this->getCancellationTrackingStats();
+
+        return view('admin.cancellation-surveys.index', compact('surveys', 'stats'));
+    }
+
+    /**
+     * Obtener estadísticas del seguimiento de cancelaciones
+     */
+    private function getCancellationTrackingStats()
+    {
+        $total = CancellationTracking::count();
+        $completed = CancellationTracking::where('process_completed', true)->count();
+        $incomplete = CancellationTracking::where('process_completed', false)->count();
+        
+        // Usuarios que solicitaron correo pero no vieron la encuesta
+        $emailOnly = CancellationTracking::where('email_requested', true)
+            ->where('survey_viewed', false)
+            ->count();
+        
+        // Usuarios que vieron la encuesta pero no la completaron
+        $surveyViewedNotCompleted = CancellationTracking::where('survey_viewed', true)
+            ->where('survey_completed', false)
+            ->count();
+        
+        // Usuarios que completaron la encuesta pero no cancelaron en algún sistema
+        $surveyCompletedNotCancelled = CancellationTracking::where('survey_completed', true)
+            ->where(function($query) {
+                $query->where('baremetrics_cancelled', false)
+                      ->orWhere('stripe_cancelled', false);
+            })
+            ->count();
+        
+        // Cancelados en ambos sistemas pero proceso no marcado como completo
+        $cancelledBothNotCompleted = CancellationTracking::where('baremetrics_cancelled', true)
+            ->where('stripe_cancelled', true)
+            ->where('process_completed', false)
+            ->count();
+        
+        // Cancelados solo en Baremetrics
+        $baremetricsOnly = CancellationTracking::where('baremetrics_cancelled', true)
+            ->where('stripe_cancelled', false)
+            ->count();
+        
+        // Cancelados solo en Stripe
+        $stripeOnly = CancellationTracking::where('stripe_cancelled', true)
+            ->where('baremetrics_cancelled', false)
+            ->count();
+
+        return [
+            'total' => $total,
+            'completed' => $completed,
+            'incomplete' => $incomplete,
+            'email_only' => $emailOnly,
+            'survey_viewed_not_completed' => $surveyViewedNotCompleted,
+            'survey_completed_not_cancelled' => $surveyCompletedNotCancelled,
+            'cancelled_both_not_completed' => $cancelledBothNotCompleted,
+            'baremetrics_only' => $baremetricsOnly,
+            'stripe_only' => $stripeOnly,
+            'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 2) : 0,
+        ];
     }
 
     /**
@@ -85,7 +178,13 @@ class AdminController extends Controller
     public function cancellationSurveysShow($id)
     {
         $survey = CancellationSurvey::findOrFail($id);
+        
+        // Obtener el tracking asociado
+        $tracking = CancellationTracking::where('email', $survey->email)
+            ->orWhere('customer_id', $survey->customer_id)
+            ->latest()
+            ->first();
 
-        return view('admin.cancellation-surveys.show', compact('survey'));
+        return view('admin.cancellation-surveys.show', compact('survey', 'tracking'));
     }
 }

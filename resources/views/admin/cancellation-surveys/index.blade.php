@@ -35,6 +35,106 @@
     </div>
 @endif
 
+<!-- Widgets de Estadísticas -->
+<div class="row mb-4">
+    <div class="col-md-2 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Total Procesos</h6>
+                        <h3 class="mb-0">{{ number_format($stats['total']) }}</h3>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 rounded p-3">
+                        <i class="fa-solid fa-list fa-2x text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-2 mb-3">
+        <div class="card border-0 shadow-sm h-100 border-top border-success border-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Completados</h6>
+                        <h3 class="mb-0 text-success">{{ number_format($stats['completed']) }}</h3>
+                        <small class="text-muted">{{ $stats['completion_rate'] }}%</small>
+                    </div>
+                    <div class="bg-success bg-opacity-10 rounded p-3">
+                        <i class="fa-solid fa-check-circle fa-2x text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-2 mb-3">
+        <div class="card border-0 shadow-sm h-100 border-top border-warning border-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Incompletos</h6>
+                        <h3 class="mb-0 text-warning">{{ number_format($stats['incomplete']) }}</h3>
+                        <small class="text-muted">Requieren atención</small>
+                    </div>
+                    <div class="bg-warning bg-opacity-10 rounded p-3">
+                        <i class="fa-solid fa-exclamation-triangle fa-2x text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-2 mb-3">
+        <div class="card border-0 shadow-sm h-100 border-top border-danger border-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Solo Correo</h6>
+                        <h3 class="mb-0 text-danger">{{ number_format($stats['email_only']) }}</h3>
+                        <small class="text-muted">No vieron encuesta</small>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 rounded p-3">
+                        <i class="fa-solid fa-envelope fa-2x text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Vieron Encuesta</h6>
+                        <h4 class="mb-0">{{ number_format($stats['survey_viewed_not_completed']) }}</h4>
+                        <small class="text-muted">No completaron</small>
+                    </div>
+                    <i class="fa-solid fa-eye fa-2x text-info"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-2 mb-3">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted mb-1">Encuesta Completa</h6>
+                        <h4 class="mb-0">{{ number_format($stats['survey_completed_not_cancelled']) }}</h4>
+                        <small class="text-muted">Falta cancelación</small>
+                    </div>
+                    <i class="fa-solid fa-clipboard-check fa-2x text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Filtros -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
@@ -59,6 +159,17 @@
                 <input type="date" class="form-control" id="date_to" name="date_to" 
                        value="{{ request('date_to') }}">
             </div>
+            <div class="col-md-2">
+                <label for="status" class="form-label">Estado del Proceso</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="">Todos</option>
+                    <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completados</option>
+                    <option value="incomplete" {{ request('status') === 'incomplete' ? 'selected' : '' }}>Incompletos</option>
+                    <option value="email_only" {{ request('status') === 'email_only' ? 'selected' : '' }}>Solo Correo</option>
+                    <option value="survey_viewed" {{ request('status') === 'survey_viewed' ? 'selected' : '' }}>Vieron Encuesta</option>
+                    <option value="survey_completed" {{ request('status') === 'survey_completed' ? 'selected' : '' }}>Encuesta Completa</option>
+                </select>
+            </div>
             <div class="col-md-2 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary w-100 me-2">
                     <i class="fa-solid fa-search me-2"></i>Buscar
@@ -81,12 +192,28 @@
                         <th>ID</th>
                         <th>Customer ID</th>
                         <th>Email</th>
+                        <th>Estado del Proceso</th>
                         <th>Fecha de Registro</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($surveys as $survey)
+                    @php
+                        $tracking = $survey->tracking;
+                        $status = $tracking ? $tracking->getCurrentStatus() : 'not_started';
+                        $statusLabels = [
+                            'completed' => ['label' => 'Completado', 'class' => 'success', 'icon' => 'check-circle'],
+                            'cancelled_both' => ['label' => 'Cancelado Ambos', 'class' => 'success', 'icon' => 'check-double'],
+                            'stripe_cancelled' => ['label' => 'Solo Stripe', 'class' => 'warning', 'icon' => 'exclamation-triangle'],
+                            'baremetrics_cancelled' => ['label' => 'Solo Baremetrics', 'class' => 'warning', 'icon' => 'exclamation-triangle'],
+                            'survey_completed' => ['label' => 'Encuesta Completa', 'class' => 'info', 'icon' => 'clipboard-check'],
+                            'survey_viewed' => ['label' => 'Vió Encuesta', 'class' => 'primary', 'icon' => 'eye'],
+                            'email_requested' => ['label' => 'Solo Correo', 'class' => 'secondary', 'icon' => 'envelope'],
+                            'not_started' => ['label' => 'No Iniciado', 'class' => 'secondary', 'icon' => 'circle'],
+                        ];
+                        $statusInfo = $statusLabels[$status] ?? ['label' => 'Desconocido', 'class' => 'secondary', 'icon' => 'question'];
+                    @endphp
                     <tr>
                         <td>#{{ $survey->id }}</td>
                         <td>
@@ -97,6 +224,22 @@
                                 <i class="fa-solid fa-envelope me-2 text-muted"></i>{{ $survey->email }}
                             @else
                                 <span class="text-muted">N/A</span>
+                            @endif
+                        </td>
+                        <td>
+                            @if($tracking)
+                                <span class="badge bg-{{ $statusInfo['class'] }}">
+                                    <i class="fa-solid fa-{{ $statusInfo['icon'] }} me-1"></i>
+                                    {{ $statusInfo['label'] }}
+                                </span>
+                                @if($tracking->current_step)
+                                    <br><small class="text-muted">{{ ucfirst(str_replace('_', ' ', $tracking->current_step)) }}</small>
+                                @endif
+                            @else
+                                <span class="badge bg-secondary">
+                                    <i class="fa-solid fa-circle me-1"></i>
+                                    Sin Seguimiento
+                                </span>
                             @endif
                         </td>
                         <td>
@@ -118,7 +261,15 @@
                                     data-additional-comments="{{ e($survey->additional_comments ?? '') }}"
                                     data-created-at="{{ $survey->created_at->format('d/m/Y H:i:s') }}"
                                     data-updated-at="{{ $survey->updated_at->format('d/m/Y H:i:s') }}"
-                                    data-created-at-diff="{{ $survey->created_at->diffForHumans() }}">
+                                    data-created-at-diff="{{ $survey->created_at->diffForHumans() }}"
+                                    data-tracking-status="{{ $status }}"
+                                    data-tracking-step="{{ $tracking->current_step ?? '' }}"
+                                    data-email-requested="{{ $tracking && $tracking->email_requested ? '1' : '0' }}"
+                                    data-survey-viewed="{{ $tracking && $tracking->survey_viewed ? '1' : '0' }}"
+                                    data-survey-completed="{{ $tracking && $tracking->survey_completed ? '1' : '0' }}"
+                                    data-baremetrics-cancelled="{{ $tracking && $tracking->baremetrics_cancelled ? '1' : '0' }}"
+                                    data-stripe-cancelled="{{ $tracking && $tracking->stripe_cancelled ? '1' : '0' }}"
+                                    data-process-completed="{{ $tracking && $tracking->process_completed ? '1' : '0' }}">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
                         </td>
@@ -177,7 +328,7 @@
                                 </small>
                             </div>
                             <div class="card-body py-2">
-                                <span class="badge bg-success">Completado</span>
+                                <span class="badge" id="modal-process-status">-</span>
                             </div>
                         </div>
                     </div>
@@ -249,6 +400,20 @@
                                 <i class="fa-solid fa-comments me-2 text-muted"></i>
                                 <span id="modal-additional-comments">-</span>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seguimiento del Proceso -->
+                <div class="card border-0 shadow-sm mb-4" id="modal-tracking-section">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0 fw-bold">
+                            <i class="fa-solid fa-route me-2"></i>Seguimiento del Proceso de Cancelación
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress-steps" id="modal-tracking-steps">
+                            <!-- Se llenará con JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -406,6 +571,93 @@ document.addEventListener('DOMContentLoaded', function() {
                 commentsBadge.className = 'badge bg-warning';
                 commentsBadge.innerHTML = '<i class="fa-solid fa-exclamation me-1"></i>Sin comentarios';
             }
+            
+            // Seguimiento del proceso
+            const trackingStatus = this.getAttribute('data-tracking-status');
+            const emailRequested = this.getAttribute('data-email-requested') === '1';
+            const surveyViewed = this.getAttribute('data-survey-viewed') === '1';
+            const surveyCompleted = this.getAttribute('data-survey-completed') === '1';
+            const baremetricsCancelled = this.getAttribute('data-baremetrics-cancelled') === '1';
+            const stripeCancelled = this.getAttribute('data-stripe-cancelled') === '1';
+            const processCompleted = this.getAttribute('data-process-completed') === '1';
+            const trackingStep = this.getAttribute('data-tracking-step');
+            
+            // Actualizar estado del proceso
+            const processStatusBadge = document.getElementById('modal-process-status');
+            const statusLabels = {
+                'completed': {text: 'Proceso Completo', class: 'bg-success'},
+                'cancelled_both': {text: 'Cancelado Ambos Sistemas', class: 'bg-success'},
+                'stripe_cancelled': {text: 'Solo Stripe', class: 'bg-warning'},
+                'baremetrics_cancelled': {text: 'Solo Baremetrics', class: 'bg-warning'},
+                'survey_completed': {text: 'Encuesta Completa', class: 'bg-info'},
+                'survey_viewed': {text: 'Vió Encuesta', class: 'bg-primary'},
+                'email_requested': {text: 'Solo Correo', class: 'bg-secondary'},
+                'not_started': {text: 'No Iniciado', class: 'bg-secondary'}
+            };
+            const statusInfo = statusLabels[trackingStatus] || {text: 'Desconocido', class: 'bg-secondary'};
+            processStatusBadge.className = 'badge ' + statusInfo.class;
+            processStatusBadge.textContent = statusInfo.text;
+            
+            // Actualizar pasos del proceso
+            const trackingSteps = document.getElementById('modal-tracking-steps');
+            trackingSteps.innerHTML = `
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="rounded-circle ${emailRequested ? 'bg-success' : 'bg-secondary'} text-white d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 14px;">
+                            ${emailRequested ? '<i class="fa-solid fa-check"></i>' : '1'}
+                        </div>
+                        <div class="ms-3">
+                            <strong>${emailRequested ? '✓' : '○'} Solicitud de Correo</strong>
+                            <small class="d-block text-muted">${emailRequested ? 'Completado' : 'Pendiente'}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="rounded-circle ${surveyViewed ? 'bg-success' : (emailRequested ? 'bg-warning' : 'bg-secondary')} text-white d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 14px;">
+                            ${surveyViewed ? '<i class="fa-solid fa-check"></i>' : '2'}
+                        </div>
+                        <div class="ms-3">
+                            <strong>${surveyViewed ? '✓' : '○'} Usuario Vio la Encuesta</strong>
+                            <small class="d-block text-muted">${surveyViewed ? 'Completado' : (emailRequested ? 'Pendiente' : 'No iniciado')}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="rounded-circle ${surveyCompleted ? 'bg-success' : (surveyViewed ? 'bg-warning' : 'bg-secondary')} text-white d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 14px;">
+                            ${surveyCompleted ? '<i class="fa-solid fa-check"></i>' : '3'}
+                        </div>
+                        <div class="ms-3">
+                            <strong>${surveyCompleted ? '✓' : '○'} Encuesta Completada</strong>
+                            <small class="d-block text-muted">${surveyCompleted ? 'Completado' : (surveyViewed ? 'Pendiente' : 'No iniciado')}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="rounded-circle ${baremetricsCancelled ? 'bg-success' : (surveyCompleted ? 'bg-warning' : 'bg-secondary')} text-white d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 14px;">
+                            ${baremetricsCancelled ? '<i class="fa-solid fa-check"></i>' : '4'}
+                        </div>
+                        <div class="ms-3">
+                            <strong>${baremetricsCancelled ? '✓' : '○'} Cancelación en Baremetrics</strong>
+                            <small class="d-block text-muted">${baremetricsCancelled ? 'Completado' : (surveyCompleted ? 'Pendiente' : 'No iniciado')}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="rounded-circle ${stripeCancelled ? 'bg-success' : (surveyCompleted ? 'bg-warning' : 'bg-secondary')} text-white d-flex align-items-center justify-content-center" style="width: 30px; height: 30px; font-size: 14px;">
+                            ${stripeCancelled ? '<i class="fa-solid fa-check"></i>' : '5'}
+                        </div>
+                        <div class="ms-3">
+                            <strong>${stripeCancelled ? '✓' : '○'} Cancelación en Stripe</strong>
+                            <small class="d-block text-muted">${stripeCancelled ? 'Completado' : (surveyCompleted ? 'Pendiente' : 'No iniciado')}</small>
+                        </div>
+                    </div>
+                </div>
+                ${trackingStep ? `<div class="alert alert-info mb-0"><small><strong>Paso actual:</strong> ${trackingStep.replace(/_/g, ' ')}</small></div>` : ''}
+            `;
         });
     });
 });
