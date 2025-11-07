@@ -1745,6 +1745,62 @@ class CancellationController extends Controller
             // Obtener datos de la sesión
             $email = session('cancellation_email');
             $customer = session('cancellation_customer');
+            $tracking = null;
+            $stripeCustomerId = null;
+
+            if (!empty($email)) {
+                try {
+                    $tracking = CancellationTracking::where('email', $email)
+                        ->latest()
+                        ->first();
+
+                    if (!$tracking) {
+                        $tracking = CancellationTracking::create([
+                            'email' => $email,
+                            'customer_id' => $customer_id,
+                        ]);
+
+                        \Log::info('Seguimiento de cancelación: registro creado desde embed', [
+                            'email' => $email,
+                            'customer_id' => $customer_id,
+                            'tracking_id' => $tracking->id
+                        ]);
+                    } elseif ($customer_id && empty($tracking->customer_id)) {
+                        $tracking->update(['customer_id' => $customer_id]);
+                    }
+
+                    $stripeCustomerId = $tracking->stripe_customer_id;
+
+                    if (!$stripeCustomerId) {
+                        $stripeCustomerId = $this->getStripeCustomerId($customer_id, $email);
+                    }
+
+                    $wasSurveyCompleted = (bool) $tracking->survey_completed;
+
+                    $tracking->markSurveyCompleted($customer_id, $stripeCustomerId);
+
+                    \Log::info('Seguimiento de cancelación: encuesta completada (embed)', [
+                        'email' => $email,
+                        'customer_id' => $customer_id,
+                        'tracking_id' => $tracking->id
+                    ]);
+
+                    $tracking = $tracking->fresh();
+                    if ($tracking && !$stripeCustomerId && $tracking->stripe_customer_id) {
+                        $stripeCustomerId = $tracking->stripe_customer_id;
+                    }
+
+                    if ($tracking && !$wasSurveyCompleted) {
+                        $this->sendCancellationSummaryEmail($tracking, 'survey_completed');
+                    }
+                } catch (\Exception $trackingError) {
+                    \Log::error('Error al registrar completación de encuesta (embed)', [
+                        'email' => $email,
+                        'customer_id' => $customer_id,
+                        'error' => $trackingError->getMessage()
+                    ]);
+                }
+            }
 
             // IMPORTANTE: Si sync_only es true, Baremetrics canceló en su sistema
             // Pero necesitamos cancelar también en Stripe
@@ -1759,7 +1815,9 @@ class CancellationController extends Controller
                 if ($email && $cancellation_reason) {
                     try {
                         // Obtener el ID de Stripe del cliente
-                        $stripeCustomerId = $this->getStripeCustomerId($customer_id, $email);
+                        if (!$stripeCustomerId) {
+                            $stripeCustomerId = $this->getStripeCustomerId($customer_id, $email);
+                        }
                         
                         CancellationSurvey::create([
                             'customer_id' => $customer_id,
@@ -1854,6 +1912,44 @@ class CancellationController extends Controller
                     } catch (\Exception $e) {
                         \Log::error('Error actualizando motivo en GHL (sincronización): ' . $e->getMessage());
                         // No es crítico, continuar
+                    }
+                }
+
+                if ($tracking && !$tracking->baremetrics_cancelled) {
+                    try {
+                        $baremetricsDetails = [
+                            'baremetrics_subscription_oid' => $baremetrics_subscription_oid,
+                            'subscription_id' => $subscription_id,
+                            'source' => 'embed_sync'
+                        ];
+
+                        if (!empty($barecancel_data)) {
+                            $decodedBarecancel = json_decode($barecancel_data, true);
+                            $baremetricsDetails['barecancel'] = $decodedBarecancel ?: $barecancel_data;
+                        }
+
+                        $tracking->markBaremetricsCancelled(json_encode(
+                            $baremetricsDetails,
+                            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                        ));
+
+                        \Log::info('Seguimiento de cancelación: cancelado en Baremetrics (embed)', [
+                            'email' => $email,
+                            'customer_id' => $customer_id,
+                            'subscription_id' => $subscription_id,
+                            'tracking_id' => $tracking->id
+                        ]);
+
+                        $tracking = $tracking->fresh();
+                        if ($tracking) {
+                            $this->sendCancellationSummaryEmail($tracking, 'baremetrics_cancelled');
+                        }
+                    } catch (\Exception $trackingError) {
+                        \Log::error('Error al rastrear cancelación en Baremetrics (embed)', [
+                            'email' => $email,
+                            'customer_id' => $customer_id,
+                            'error' => $trackingError->getMessage()
+                        ]);
                     }
                 }
                 
