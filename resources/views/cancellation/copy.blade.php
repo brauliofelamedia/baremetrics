@@ -16,9 +16,9 @@
     <div id="barecancel-error" style="display:none; color: red; margin-top: 20px; text-align: center;"></div>
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://baremetrics-barecancel.baremetrics.com/js/application.js"></script>
+    <script src="{{ config('services.baremetrics.barecancel_js_url') }}"></script>
 <script>
-!function(){if(window.barecancel&&window.barecancel.created)window.console&&console.error&&console.error("Barecancel snippet included twice.");else{window.barecancel={created:!0};var a=document.createElement("script");a.src="https://baremetrics-barecancel.baremetrics.com/js/application.js",a.async=!0;var b=document.getElementsByTagName("script")[0];b.parentNode.insertBefore(a,b),
+!function(){if(window.barecancel&&window.barecancel.created)window.console&&console.error&&console.error("Barecancel snippet included twice.");else{window.barecancel={created:!0};var a=document.createElement("script");a.src="{{ config('services.baremetrics.barecancel_js_url') }}",a.async=!0;var b=document.getElementsByTagName("script")[0];b.parentNode.insertBefore(a,b),
 
     window.barecancel.params = {
     access_token_id: "65697af2-ed89-4a8c-bf8b-c7919fd325f2",
