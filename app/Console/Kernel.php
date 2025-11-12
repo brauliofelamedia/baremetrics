@@ -27,6 +27,15 @@ class Kernel extends ConsoleKernel
                 ->hourly()
                 ->when(function () {
                     // Solo ejecutar si existe un token y está a punto de expirar (menos de 4 horas)
+                    // Evitar consultar la DB si la tabla no existe (migrations en curso)
+                    try {
+                        if (!\Illuminate\Support\Facades\Schema::hasTable('configurations')) {
+                            return false;
+                        }
+                    } catch (\Exception $e) {
+                        return false;
+                    }
+
                     $config = \App\Models\Configuration::first();
                     return $config && 
                            $config->ghl_refresh_token && 

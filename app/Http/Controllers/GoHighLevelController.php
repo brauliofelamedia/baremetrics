@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Log;
 use App\Services\GoHighLevelService;
 use Illuminate\Http\Request;
 use App\Models\Configuration;
+use Illuminate\Support\Facades\Schema;
 
 class GoHighLevelController extends Controller
 {
@@ -34,14 +35,28 @@ class GoHighLevelController extends Controller
             // if a configuration record exists
             $token = $this->ghl->getToken($code);
             
-            // Make sure we have a configuration record
-            $conf = Configuration::first();
+            // Make sure we have a configuration record (only if table exists)
+            $conf = null;
+            try {
+                if (Schema::hasTable('configurations')) {
+                    $conf = Configuration::first();
+                }
+            } catch (\Exception $e) {
+                $conf = null;
+            }
+
             if (!$conf) {
-                // Create a new configuration if it doesn't exist
-                $conf = new Configuration();
-                $conf->ghl_code = $code;
-                $conf->ghl_token = $token;
-                $conf->save();
+                // Create a new configuration if it doesn't exist and the table exists
+                try {
+                    if (Schema::hasTable('configurations')) {
+                        $conf = new Configuration();
+                        $conf->ghl_code = $code;
+                        $conf->ghl_token = $token;
+                        $conf->save();
+                    }
+                } catch (\Exception $e) {
+                    Log::error('No se pudo crear la configuración de GHL: ' . $e->getMessage());
+                }
             }
             
             return redirect()->route('admin.dashboard')->with('success', 'Se obtuvo el código de autorización exitosamente');

@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Services\GoHighLevelService;
 use App\Models\Configuration;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class RefreshGHLToken extends Command
 {
@@ -42,9 +43,16 @@ class RefreshGHLToken extends Command
         $this->info('🔄 Refrescando token de GoHighLevel...');
         
         try {
-            // Verificar configuración
-            $config = Configuration::first();
-            
+            // Verificar configuración (asegurarnos que la tabla exista)
+            $config = null;
+            try {
+                if (Schema::hasTable('configurations')) {
+                    $config = Configuration::first();
+                }
+            } catch (\Exception $e) {
+                $config = null;
+            }
+
             if (!$config) {
                 $this->error('❌ No hay configuración de GoHighLevel en la base de datos');
                 $this->warn('💡 Necesitas ejecutar el proceso de autorización inicial primero');
@@ -83,9 +91,15 @@ class RefreshGHLToken extends Command
             if ($newToken) {
                 $this->info('✅ Token renovado exitosamente');
                 
-                // Mostrar información del nuevo token
-                $config = Configuration::first(); // Recargar configuración
-                if ($config->ghl_token_expires_at) {
+                // Mostrar información del nuevo token (recargar si la tabla existe)
+                try {
+                    if (Schema::hasTable('configurations')) {
+                        $config = Configuration::first(); // Recargar configuración
+                    }
+                } catch (\Exception $e) {
+                    $config = null;
+                }
+                if ($config && $config->ghl_token_expires_at) {
                     $this->info("📅 Nuevo token expira: {$config->ghl_token_expires_at->format('Y-m-d H:i:s')}");
                 }
                 

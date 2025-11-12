@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Configuration;
+use Illuminate\Support\Facades\Schema;
 use App\Services\GoHighLevelService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -47,8 +48,15 @@ class RefreshGoHighLevelToken extends Command
         $this->info('Refrescando token de GoHighLevel...');
         
         try {
-            $config = Configuration::first();
-            
+            $config = null;
+            try {
+                if (Schema::hasTable('configurations')) {
+                    $config = Configuration::first();
+                }
+            } catch (\Exception $e) {
+                $config = null;
+            }
+
             if (!$config) {
                 $this->error('No hay configuración disponible en la base de datos.');
                 return 1;

@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
 use App\Models\Configuration;
+use Illuminate\Support\Facades\Schema;
 
 class ScheduleServiceProvider extends ServiceProvider
 {
@@ -27,7 +28,17 @@ class ScheduleServiceProvider extends ServiceProvider
                 ->hourly()
                 ->when(function () {
                     // Solo ejecutar si existe un token y está a punto de expirar (menos de 4 horas)
-                    $config = Configuration::first();
+                    // Evitar consultar la DB si la tabla no existe (migrations en curso)
+                    if (!Schema::hasTable('configurations')) {
+                        return false;
+                    }
+
+                    try {
+                        $config = Configuration::first();
+                    } catch (\Exception $e) {
+                        return false;
+                    }
+
                     return $config && 
                            $config->ghl_refresh_token && 
                            $config->ghl_token_expires_at && 

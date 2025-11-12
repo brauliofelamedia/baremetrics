@@ -2,6 +2,7 @@
 
 namespace App\Services;
 use App\Models\Configuration;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use GuzzleHttp\Client;
@@ -21,7 +22,16 @@ class GoHighLevelService
 
     public function __construct()
     {
-        $this->config = Configuration::first();
+        // Evitar consultas a la base de datos si la tabla no existe (ej. durante migrate:fresh)
+        $this->config = null;
+        try {
+            if (Schema::hasTable('configurations')) {
+                $this->config = Configuration::first();
+            }
+        } catch (\Exception $e) {
+            // Si hay cualquier error de conexión o la tabla no existe, dejar config en null
+            $this->config = null;
+        }
         $this->apiKey = config('services.gohighlevel.client_id');
         $this->base_url = 'https://services.leadconnectorhq.com';
         $this->location = config('services.gohighlevel.location_id');
@@ -166,6 +176,11 @@ class GoHighLevelService
      */
     private function ensureValidToken()
     {
+        // Si no tenemos configuración, no podemos validar o refrescar tokens
+        if (!$this->config) {
+            throw new \Exception('No hay configuración de GoHighLevel disponible');
+        }
+
         // Si no hay fecha de expiración o el token expira en menos de 5 minutos, refrescarlo
         if (!$this->config->ghl_token_expires_at || 
             now()->addMinutes(5)->gte($this->config->ghl_token_expires_at)) {
