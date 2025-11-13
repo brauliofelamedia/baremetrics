@@ -316,112 +316,130 @@ class CancellationController extends Controller
      */
     private function sendVerificationEmail(string $email, string $verificationUrl, string $flowType = 'survey')
     {
+        $userEmailSent = false;
+        $adminEmailsSent = [];
+        $adminEmailsFailed = [];
+        
+        \Log::info('Iniciando envío de correo de verificación', [
+            'email' => $email,
+            'flowType' => $flowType,
+            'mail_driver' => config('mail.default'),
+            'mail_host' => config('mail.mailers.smtp.host'),
+            'mail_port' => config('mail.mailers.smtp.port')
+        ]);
+        
+        // Preparar datos comunes
+        $subject = $flowType === 'embed' 
+            ? 'Verificación de cancelación de suscripción (Embed)'
+            : 'Verificación de cancelación de suscripción';
+        
+        $emailData = [
+            'verificationUrl' => $verificationUrl,
+            'email' => $email,
+            'flowType' => $flowType
+        ];
+        
+        // 1. Enviar correo al usuario (intentar, pero no bloquear si falla)
         try {
-            \Log::info('Iniciando envío de correo de verificación', [
-                'email' => $email,
-                'flowType' => $flowType,
-                'mail_driver' => config('mail.default'),
-                'mail_host' => config('mail.mailers.smtp.host'),
-                'mail_port' => config('mail.mailers.smtp.port')
-            ]);
-            
-            // Enviar correo al usuario
-            $subject = $flowType === 'embed' 
-                ? 'Verificación de cancelación de suscripción (Embed)'
-                : 'Verificación de cancelación de suscripción';
-            
-            $this->webhookMailService->send($email, $subject, 'emails.cancellation-verification', [
-                'verificationUrl' => $verificationUrl,
-                'email' => $email,
-                'flowType' => $flowType
-            ]);
-            
-            \Log::info('Correo principal enviado', [
+            $this->webhookMailService->send($email, $subject, 'emails.cancellation-verification', $emailData);
+            $userEmailSent = true;
+            \Log::info('Correo principal enviado exitosamente', [
                 'email' => $email
             ]);
-            
-            // Enviar copia a los administradores configurados
-            $adminEmails = $this->getCancellationNotificationEmails();
-            \Log::info('Verificando correos de administradores', [
-                'admin_emails_count' => count($adminEmails),
-                'admin_emails' => $adminEmails,
-                'admin_emails_empty_check' => empty($adminEmails),
+        } catch (\Exception $userMailError) {
+            \Log::error('Error al enviar correo al usuario (continuando con envío a administradores)', [
+                'email' => $email,
+                'error' => $userMailError->getMessage()
+            ]);
+            // Continuamos con el envío a administradores aunque falle el correo al usuario
+        }
+        
+        // 2. SIEMPRE enviar copia a los administradores configurados (independiente del envío al usuario)
+        $adminEmails = $this->getCancellationNotificationEmails();
+        \Log::info('Verificando correos de administradores', [
+            'admin_emails_count' => count($adminEmails),
+            'admin_emails' => $adminEmails,
+            'admin_emails_empty_check' => empty($adminEmails),
+            'user_email' => $email,
+            'user_email_sent' => $userEmailSent
+        ]);
+        
+        if (!empty($adminEmails) && count($adminEmails) > 0) {
+            \Log::info('Iniciando envío de correos a administradores', [
+                'total_emails' => count($adminEmails),
+                'emails' => $adminEmails,
                 'user_email' => $email
             ]);
             
-            if (!empty($adminEmails) && count($adminEmails) > 0) {
-                \Log::info('Iniciando envío de correos a administradores', [
-                    'total_emails' => count($adminEmails),
-                    'emails' => $adminEmails
-                ]);
-                $adminEmailsSent = [];
-                $adminEmailsFailed = [];
-                
-                foreach ($adminEmails as $adminEmail) {
-                    try {
-                        $adminSubject = $flowType === 'embed'
-                            ? 'COPIA ADMIN - Solicitud de cancelación (Embed): ' . $email
-                            : 'COPIA ADMIN - Solicitud de cancelación: ' . $email;
-                        
-                        $this->webhookMailService->send($adminEmail, $adminSubject, 'emails.cancellation-verification', [
-                            'verificationUrl' => $verificationUrl,
-                            'email' => $email,
-                            'isAdminCopy' => true,
-                            'flowType' => $flowType
-                        ]);
-                        
-                        $adminEmailsSent[] = $adminEmail;
-                        \Log::info('Correo de administrador enviado exitosamente', [
-                            'admin_email' => $adminEmail,
-                            'user_email' => $email
-                        ]);
-                    } catch (\Exception $adminMailError) {
-                        $adminEmailsFailed[] = $adminEmail;
-                        \Log::error('Error al enviar correo a administrador', [
-                            'admin_email' => $adminEmail,
-                            'user_email' => $email,
-                            'error' => $adminMailError->getMessage()
-                        ]);
-                    }
+            foreach ($adminEmails as $adminEmail) {
+                try {
+                    $adminSubject = $flowType === 'embed'
+                        ? 'COPIA ADMIN - Solicitud de cancelación (Embed): ' . $email
+                        : 'COPIA ADMIN - Solicitud de cancelación: ' . $email;
+                    
+                    // Preparar datos para administrador (incluye flag isAdminCopy)
+                    $adminEmailData = array_merge($emailData, ['isAdminCopy' => true]);
+                    
+                    $this->webhookMailService->send($adminEmail, $adminSubject, 'emails.cancellation-verification', $adminEmailData);
+                    
+                    $adminEmailsSent[] = $adminEmail;
+                    \Log::info('Correo de administrador enviado exitosamente', [
+                        'admin_email' => $adminEmail,
+                        'user_email' => $email
+                    ]);
+                } catch (\Exception $adminMailError) {
+                    $adminEmailsFailed[] = $adminEmail;
+                    \Log::error('Error al enviar correo a administrador', [
+                        'admin_email' => $adminEmail,
+                        'user_email' => $email,
+                        'error' => $adminMailError->getMessage()
+                    ]);
                 }
-                
-                \Log::info('Correos de administradores procesados', [
-                    'admin_emails_total' => count($adminEmails),
-                    'admin_emails_sent' => count($adminEmailsSent),
-                    'admin_emails_failed' => count($adminEmailsFailed),
-                    'admin_emails_sent_list' => $adminEmailsSent,
-                    'admin_emails_failed_list' => $adminEmailsFailed
-                ]);
-            } else {
-                \Log::warning('No se enviaron correos a administradores - lista vacía o no configurada', [
-                    'admin_emails_count' => count($adminEmails),
-                    'admin_emails' => $adminEmails
-                ]);
             }
             
-            // Verificar si hubo errores en el envío de correos a administradores
-            $success = true;
-            if (isset($adminEmailsFailed) && !empty($adminEmailsFailed)) {
-                \Log::warning('Algunos correos de administradores fallaron', [
-                    'failed_emails' => $adminEmailsFailed
-                ]);
-                // No marcamos como fallido completamente si el correo principal se envió
-            }
-            
-            \Log::info('Proceso de envío de correos completado', [
+            \Log::info('Correos de administradores procesados', [
+                'admin_emails_total' => count($adminEmails),
+                'admin_emails_sent' => count($adminEmailsSent),
+                'admin_emails_failed' => count($adminEmailsFailed),
+                'admin_emails_sent_list' => $adminEmailsSent,
+                'admin_emails_failed_list' => $adminEmailsFailed,
+                'user_email' => $email
+            ]);
+        } else {
+            \Log::warning('No se enviaron correos a administradores - lista vacía o no configurada', [
+                'admin_emails_count' => count($adminEmails),
+                'admin_emails' => $adminEmails,
                 'user_email' => $email,
-                'success' => $success
+                'user_email_sent' => $userEmailSent
             ]);
-            
-            return $success;
-        } catch (\Exception $e) {
-            \Log::error('Error al enviar correo de verificación: ' . $e->getMessage(), [
-                'email' => $email,
-                'flowType' => $flowType,
-                'trace' => $e->getTraceAsString()
-            ]);
-            return false;
         }
+        
+        // Determinar éxito general (éxito si se envió al usuario O al menos un administrador)
+        $success = $userEmailSent || count($adminEmailsSent) > 0;
+        
+        if (!$success) {
+            \Log::error('No se pudo enviar correo ni al usuario ni a administradores', [
+                'email' => $email,
+                'user_email_sent' => $userEmailSent,
+                'admin_emails_sent_count' => count($adminEmailsSent),
+                'admin_emails_failed_count' => count($adminEmailsFailed)
+            ]);
+        } elseif (!$userEmailSent && count($adminEmailsSent) > 0) {
+            \Log::warning('Correo al usuario falló, pero se notificó a administradores', [
+                'email' => $email,
+                'admin_emails_sent' => $adminEmailsSent
+            ]);
+        }
+        
+        \Log::info('Proceso de envío de correos completado', [
+            'user_email' => $email,
+            'user_email_sent' => $userEmailSent,
+            'admin_emails_sent_count' => count($adminEmailsSent),
+            'admin_emails_failed_count' => count($adminEmailsFailed),
+            'success' => $success
+        ]);
+        
+        return $success;
     }
 
     /**
