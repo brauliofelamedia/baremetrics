@@ -453,10 +453,8 @@ class ProcessAllGHLUsers extends Command
                 'is_dry_run' => $stats['is_dry_run']
             ];
 
-            Mail::send('emails.ghl-processing-report', $data, function ($message) use ($email, $subject) {
-                $message->to($email)
-                        ->subject($subject);
-            });
+            $webhookMailService = app(\App\Services\WebhookMailService::class);
+            $webhookMailService->send($email, $subject, 'emails.ghl-processing-report', $data);
 
             $this->info("📧 Correo de notificación enviado a: {$email}");
 

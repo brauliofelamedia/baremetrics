@@ -55,14 +55,13 @@ class TestCancellationAdminNotification extends Command
         $this->info("🔗 URL de verificación: {$verificationUrl}");
         
         try {
+            $webhookMailService = app(\App\Services\WebhookMailService::class);
+            
             // Enviar correo al usuario
-            Mail::send('emails.cancellation-verification', [
+            $webhookMailService->send($email, 'Verificación de cancelación de suscripción - PRUEBA', 'emails.cancellation-verification', [
                 'verificationUrl' => $verificationUrl,
                 'email' => $email
-            ], function($message) use ($email) {
-                $message->to($email)
-                    ->subject('Verificación de cancelación de suscripción - PRUEBA');
-            });
+            ]);
             
             $this->info("✅ Correo enviado al usuario: {$email}");
             
@@ -70,14 +69,11 @@ class TestCancellationAdminNotification extends Command
             $adminEmails = $this->getCancellationNotificationEmails();
             if (!empty($adminEmails)) {
                 foreach ($adminEmails as $adminEmail) {
-                    Mail::send('emails.cancellation-verification', [
+                    $webhookMailService->send($adminEmail, 'COPIA ADMIN - Solicitud de cancelación: ' . $email . ' - PRUEBA', 'emails.cancellation-verification', [
                         'verificationUrl' => $verificationUrl,
                         'email' => $email,
                         'isAdminCopy' => true
-                    ], function($message) use ($email, $adminEmail) {
-                        $message->to($adminEmail)
-                            ->subject('COPIA ADMIN - Solicitud de cancelación: ' . $email . ' - PRUEBA');
-                    });
+                    ]);
                 }
                 $this->info("✅ Copias administrativas enviadas a: " . implode(', ', $adminEmails));
             } else {

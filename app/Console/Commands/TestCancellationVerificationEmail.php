@@ -38,13 +38,11 @@ class TestCancellationVerificationEmail extends Command
         $verificationUrl = url('cancellation/verify/' . $token);
         
         try {
-            Mail::send('emails.cancellation-verification', [
+            $webhookMailService = app(\App\Services\WebhookMailService::class);
+            $webhookMailService->send($email, 'Verificación de cancelación de suscripción - Prueba', 'emails.cancellation-verification', [
                 'verificationUrl' => $verificationUrl,
                 'email' => $email
-            ], function($message) use ($email) {
-                $message->to($email)
-                    ->subject('Verificación de cancelación de suscripción - Prueba');
-            });
+            ]);
             
             $this->info("✓ Correo de verificación de cancelación enviado correctamente a {$email}");
             $this->info("✓ URL de verificación (prueba): {$verificationUrl}");

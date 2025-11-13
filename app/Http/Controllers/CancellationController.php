@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Services\StripeService;
 use App\Services\BaremetricsService;
+use App\Services\WebhookMailService;
 use Illuminate\Http\Request;
 use Log;
 use Cache;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\CancellationToken;
@@ -18,11 +18,13 @@ class CancellationController extends Controller
 {
     protected $stripeService;
     protected $baremetricsService;
+    protected $webhookMailService;
 
-    public function __construct(StripeService $stripeService, BaremetricsService $baremetricsService)
+    public function __construct(StripeService $stripeService, BaremetricsService $baremetricsService, WebhookMailService $webhookMailService)
     {
         $this->stripeService = $stripeService;
         $this->baremetricsService = $baremetricsService;
+        $this->webhookMailService = $webhookMailService;
     }
 
     /**
@@ -324,17 +326,15 @@ class CancellationController extends Controller
             ]);
             
             // Enviar correo al usuario
-            Mail::send('emails.cancellation-verification', [
+            $subject = $flowType === 'embed' 
+                ? 'Verificación de cancelación de suscripción (Embed)'
+                : 'Verificación de cancelación de suscripción';
+            
+            $this->webhookMailService->send($email, $subject, 'emails.cancellation-verification', [
                 'verificationUrl' => $verificationUrl,
                 'email' => $email,
                 'flowType' => $flowType
-            ], function($message) use ($email, $flowType) {
-                $subject = $flowType === 'embed' 
-                    ? 'Verificación de cancelación de suscripción (Embed)'
-                    : 'Verificación de cancelación de suscripción';
-                $message->to($email)
-                    ->subject($subject);
-            });
+            ]);
             
             \Log::info('Correo principal enviado', [
                 'email' => $email
@@ -359,18 +359,16 @@ class CancellationController extends Controller
                 
                 foreach ($adminEmails as $adminEmail) {
                     try {
-                        Mail::send('emails.cancellation-verification', [
+                        $adminSubject = $flowType === 'embed'
+                            ? 'COPIA ADMIN - Solicitud de cancelación (Embed): ' . $email
+                            : 'COPIA ADMIN - Solicitud de cancelación: ' . $email;
+                        
+                        $this->webhookMailService->send($adminEmail, $adminSubject, 'emails.cancellation-verification', [
                             'verificationUrl' => $verificationUrl,
                             'email' => $email,
                             'isAdminCopy' => true,
                             'flowType' => $flowType
-                        ], function($message) use ($email, $adminEmail, $flowType) {
-                            $subject = $flowType === 'embed'
-                                ? 'COPIA ADMIN - Solicitud de cancelación (Embed): ' . $email
-                                : 'COPIA ADMIN - Solicitud de cancelación: ' . $email;
-                            $message->to($adminEmail)
-                                ->subject($subject);
-                        });
+                        ]);
                         
                         $adminEmailsSent[] = $adminEmail;
                         \Log::info('Correo de administrador enviado exitosamente', [
@@ -1584,16 +1582,14 @@ class CancellationController extends Controller
 
             foreach ($adminEmails as $adminEmail) {
                 try {
-                    Mail::send('emails.cancellation-summary', [
+                    $statusText = $this->getStatusText($status);
+                    $subject = "Resumen de Cancelación - {$tracking->email} - {$statusText}";
+                    
+                    $this->webhookMailService->send($adminEmail, $subject, 'emails.cancellation-summary', [
                         'tracking' => $tracking,
                         'status' => $status,
                         'triggerEvent' => $triggerEvent
-                    ], function($message) use ($tracking, $adminEmail, $status) {
-                        $statusText = $this->getStatusText($status);
-                        $subject = "Resumen de Cancelación - {$tracking->email} - {$statusText}";
-                        $message->to($adminEmail)
-                            ->subject($subject);
-                    });
+                    ]);
 
                     $adminEmailsSent[] = $adminEmail;
                     \Log::info('Correo de resumen enviado exitosamente a administrador', [

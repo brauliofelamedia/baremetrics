@@ -32,10 +32,9 @@ class SendTestEmail extends Command
         $this->info("Sending test email to: {$email}");
         
         try {
-            Mail::raw('This is a test email from your Laravel application.', function (Message $message) use ($email) {
-                $message->to($email)
-                    ->subject('Test Email from Laravel App');
-            });
+            $webhookMailService = app(\App\Services\WebhookMailService::class);
+            $html = '<html><body><p>This is a test email from your Laravel application.</p></body></html>';
+            $webhookMailService->sendRaw($email, 'Test Email from Laravel App', $html);
             
             $this->info('Test email sent successfully!');
         } catch (\Exception $e) {

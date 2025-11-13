@@ -558,10 +558,8 @@ class ProcessGHLToBaremetrics extends Command
                 'processing_type' => 'GHL_TO_BAREMETRICS'
             ];
 
-            \Mail::send('emails.ghl-processing-report', $data, function ($message) use ($email, $subject) {
-                $message->to($email)
-                        ->subject($subject);
-            });
+            $webhookMailService = app(\App\Services\WebhookMailService::class);
+            $webhookMailService->send($email, $subject, 'emails.ghl-processing-report', $data);
 
             $this->info("📧 Correo de notificación enviado a: {$email}");
             
