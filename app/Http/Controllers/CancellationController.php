@@ -193,8 +193,10 @@ class CancellationController extends Controller
        
        // Obtener datos de la sesión
        $email = session('cancellation_email');
-       $customer = session('cancellation_customer');
-       $activeSubscriptions = session('cancellation_active_subscriptions', []);
+       
+       // Recuperar cliente y suscripciones desde helpers (no de sesión)
+       $customer = $this->getSessionCustomerData($customer_id);
+       $activeSubscriptions = $this->getSessionActiveSubscriptions($customer_id, $email);
        
        // Encontrar la suscripción seleccionada
        $selectedSubscription = null;
@@ -237,8 +239,10 @@ class CancellationController extends Controller
        
        // Obtener datos de la sesión
        $email = session('cancellation_email');
-       $customer = session('cancellation_customer');
-       $activeSubscriptions = session('cancellation_active_subscriptions', []);
+       
+       // Recuperar cliente y suscripciones desde el helper (no de sesión)
+       $customer = $this->getSessionCustomerData($customer_id);
+       $activeSubscriptions = $this->getSessionActiveSubscriptions($customer_id, $email);
        
        // Encontrar la suscripción seleccionada
        $selectedSubscription = null;
@@ -251,7 +255,7 @@ class CancellationController extends Controller
                if (($subId && $subId == $subscription_id) || 
                    ($bmSubId && $bmSubId == $subscription_id)) {
                    $selectedSubscription = $subscription;
-                   \Log::info('Suscripción encontrada en sesión', [
+                   \Log::info('Suscripción encontrada en recuperación', [
                        'subscription_id' => $subscription_id,
                        'encontrada' => true
                    ]);
@@ -268,7 +272,7 @@ class CancellationController extends Controller
            $subscription_id = $selectedSubscription['subscription_id'] ?? 
                              $selectedSubscription['baremetrics_subscription_oid'] ?? 
                              $subscription_id;
-           \Log::info('Usando primera suscripción de la sesión como fallback', [
+           \Log::info('Usando primera suscripción como fallback', [
                'subscription_id' => $subscription_id
            ]);
        }
@@ -891,11 +895,10 @@ class CancellationController extends Controller
 
         $email = $tokenRecord->email;
 
-        // Marcamos el token como usado
-        $tokenRecord->markAsUsed();
-
-        // También eliminamos de la caché para consistencia
-        Cache::forget('cancellation_token_' . $token);
+        // NO marcar el token como usado aquí - se marcará cuando la cancelación sea exitosa
+        // para permitir reintentos si hay errores en el proceso
+        $cancellation_token = $token;
+        $cancellation_token_record = $tokenRecord;
 
         // Obtener el cliente usando el email
         $customers = $this->getCustomers($email);
@@ -911,11 +914,12 @@ class CancellationController extends Controller
             return redirect()->route('cancellation.form')->with('error', 'No se pudo obtener la identificación del cliente.');
         }
 
-        // Almacenar información del cliente en la sesión para evitar búsquedas posteriores
+        // Almacenar SOLO IDs y token en la sesión para evitar headers demasiado grandes
         session([
-            'cancellation_customer' => $customer,
             'cancellation_customer_id' => $customerId,
-            'cancellation_email' => $email
+            'cancellation_email' => $email,
+            'cancellation_token' => $cancellation_token,
+            'cancellation_token_record_id' => $cancellation_token_record->id
         ]);
 
         // Rastrear que el usuario vio la encuesta
@@ -970,11 +974,10 @@ class CancellationController extends Controller
 
         $email = $tokenRecord->email;
 
-        // Marcamos el token como usado
-        $tokenRecord->markAsUsed();
-
-        // También eliminamos de la caché para consistencia
-        Cache::forget('cancellation_token_' . $token);
+        // NO marcar el token como usado aquí - se marcará cuando la cancelación sea exitosa
+        // para permitir reintentos si hay errores en el proceso
+        $cancellation_token = $token;
+        $cancellation_token_record = $tokenRecord;
 
         // Obtener el cliente usando el email
         $customers = $this->getCustomers($email);
@@ -1301,12 +1304,16 @@ class CancellationController extends Controller
             return redirect()->route('cancellation.form')->with('error', 'No tienes membresías activas de Stripe que puedas cancelar. Todas tus membresías ya se encuentran canceladas.');
         }
 
-        // Almacenar información del cliente en la sesión
+        // Almacenar SOLO IDs en la sesión para evitar headers demasiado grandes
+        // Recuperaremos los datos completos cuando sea necesario
+        $subscriptionIds = array_map(fn($s) => $s['subscription_id'], $activeSubscriptions);
+        
         session([
-            'cancellation_customer' => $customer,
             'cancellation_customer_id' => $customerId,
             'cancellation_email' => $email,
-            'cancellation_active_subscriptions' => $activeSubscriptions
+            'cancellation_subscription_ids' => $subscriptionIds,
+            'cancellation_token' => $cancellation_token,
+            'cancellation_token_record_id' => $cancellation_token_record->id
         ]);
 
         // Rastrear que el usuario vio la encuesta (embed)
@@ -1432,11 +1439,10 @@ class CancellationController extends Controller
             return redirect()->back()->with('error', 'El cliente no tiene membresías activas de Stripe por cancelar. Todas las membresías ya se encuentran canceladas.');
         }
         
-        // Almacenamos en sesión los datos necesarios para el proceso de cancelación
+        // Almacenamos SOLO IDs en sesión para evitar headers demasiado grandes
         session([
-            'cancellation_email' => $email,
-            'cancellation_customer' => $customer,
-            'cancellation_active_subscriptions' => $activeSubscriptions
+            'cancellation_customer_id' => $customer['oid'],
+            'cancellation_email' => $email
         ]);
         
         // Si hay solo una suscripción activa, redirigimos directamente a manualCancellation
@@ -1758,7 +1764,7 @@ class CancellationController extends Controller
         try {
             // Obtener datos de la sesión
             $email = session('cancellation_email');
-            $customer = session('cancellation_customer');
+            $customer = $this->getSessionCustomerData($customer_id);
             $tracking = null;
             $stripeCustomerId = null;
 
@@ -2275,6 +2281,22 @@ class CancellationController extends Controller
                 \Log::error('Error cancelando en Baremetrics desde embed: ' . $e->getMessage());
             }
             
+            // Marcar el token como usado solo cuando la cancelación fue exitosa
+            try {
+                $tokenToMark = CancellationToken::where('token', session('cancellation_token'))->first();
+                if ($tokenToMark && !$tokenToMark->is_used) {
+                    $tokenToMark->markAsUsed();
+                    Cache::forget('cancellation_token_' . session('cancellation_token'));
+                    \Log::info('Token de cancelación marcado como usado (embed exitoso)', [
+                        'email' => $email,
+                        'customer_id' => $customer_id,
+                        'token_id' => $tokenToMark->id
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Error marcando token como usado en cancelSubscriptionWithEmbed: ' . $e->getMessage());
+            }
+            
             return response()->json([
                 'success' => true,
                 'message' => 'La suscripción ha sido cancelada correctamente.'
@@ -2296,12 +2318,13 @@ class CancellationController extends Controller
     
     public function surveyCancellation($customer_id)
     {
-        // Obtener información del cliente de la sesión (almacenada durante la verificación del token)
-        $customer = session('cancellation_customer');
+        // Obtener información del cliente usando el helper (no de sesión directamente)
+        $email = session('cancellation_email');
+        $customer = $this->getSessionCustomerData($customer_id);
 
-        // Verificar que el customer_id coincida con el de la sesión
+        // Verificar que el customer_id coincida con el del cliente recuperado
         if (!$customer || ($customer['oid'] ?? null) !== $customer_id) {
-            // Si no hay información en la sesión o no coincide, intentar buscar (como fallback)
+            // Si no hay información o no coincide, intentar buscar (como fallback)
             $customer = null;
             try {
                 // Buscar el cliente por su OID en todas las fuentes (solo como fallback)
@@ -2339,7 +2362,7 @@ class CancellationController extends Controller
 
         // Rastrear que el usuario vio la encuesta (si no se rastreó antes)
         try {
-            $email = session('cancellation_email') ?? ($customer['email'] ?? null);
+            $email = $email ?? ($customer['email'] ?? null);
             if ($email) {
                 $tracking = CancellationTracking::where('email', $email)
                     ->latest()
@@ -2402,13 +2425,13 @@ class CancellationController extends Controller
             'reason' => $reason
         ]);
 
-        // Obtener información del cliente de la sesión primero
-        $customer = session('cancellation_customer');
+        // Obtener información del cliente usando el helper (no de sesión)
+        $customer = $this->getSessionCustomerData($customer_id);
         
         // Si el email no vino en el request, intentar obtenerlo del customer
         if (empty($email) && $customer && isset($customer['email'])) {
             $email = $customer['email'];
-            \Log::info('Email obtenido del customer en sesión', [
+            \Log::info('Email obtenido del customer recuperado', [
                 'customer_id' => $customer_id,
                 'email' => $email
             ]);
@@ -2416,7 +2439,7 @@ class CancellationController extends Controller
 
         // Verificar que el customer_id coincida
         if (!$customer || ($customer['oid'] ?? null) !== $customer_id) {
-            // Si no hay información en la sesión o no coincide, buscar el email si existe
+            // Si no hay información o no coincide, buscar el email si existe
             $customer = null;
             
             // Si tenemos email, buscar por email en Baremetrics
@@ -2944,6 +2967,27 @@ class CancellationController extends Controller
             $successMessage = 'Todas las suscripciones han sido canceladas correctamente.';
         }
 
+        // Marcar el token como usado solo si la cancelación fue exitosa (sin errores)
+        if (!$hasErrors && $email) {
+            try {
+                $token = CancellationToken::where('email', $email)
+                    ->where('is_used', false)
+                    ->first();
+                
+                if ($token) {
+                    $token->markAsUsed();
+                    Cache::forget('cancellation_token_' . $token->token);
+                    \Log::info('Token de cancelación marcado como usado (survey exitoso)', [
+                        'email' => $email,
+                        'customer_id' => $customer_id,
+                        'token_id' => $token->id
+                    ]);
+                }
+            } catch (\Exception $e) {
+                \Log::warning('Error marcando token como usado después de survey: ' . $e->getMessage());
+            }
+        }
+
         return view('cancellation.result', [
             'success' => !$hasErrors,
             'message' => $successMessage,
@@ -2957,5 +3001,233 @@ class CancellationController extends Controller
             ],
             'hasErrors' => $hasErrors
         ]);
+    }
+
+    /**
+     * Helper para recuperar datos del cliente desde la sesión o BD/API
+     * Evita almacenar datos completos en sesión para prevenir headers demasiado grandes
+     */
+    private function getSessionCustomerData($customerId = null)
+    {
+        $customerId = $customerId ?? session('cancellation_customer_id');
+        $email = session('cancellation_email');
+        
+        if (!$customerId || !$email) {
+            return null;
+        }
+
+        try {
+            // Recuperar del servicio de Baremetrics
+            $customers = $this->getCustomers($email);
+            if (!empty($customers) && isset($customers[0])) {
+                return $customers[0];
+            }
+        } catch (\Exception $e) {
+            \Log::warning('Error recuperando datos del cliente en helper', [
+                'customer_id' => $customerId,
+                'email' => $email,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        return null;
+    }
+
+    /**
+     * Helper para recuperar las suscripciones activas del cliente
+     * Recupera desde Baremetrics/Stripe en lugar de sesión
+     */
+    private function getSessionActiveSubscriptions($customerId = null, $email = null)
+    {
+        $customerId = $customerId ?? session('cancellation_customer_id');
+        $email = $email ?? session('cancellation_email');
+        $subscriptionIds = session('cancellation_subscription_ids', []);
+
+        if (empty($customerId) || empty($email)) {
+            return [];
+        }
+
+        try {
+            // Recuperar cliente
+            $customers = $this->getCustomers($email);
+            if (empty($customers) || !isset($customers[0])) {
+                return [];
+            }
+
+            $customer = $customers[0];
+            $activeSubscriptions = [];
+
+            // Re-recuperar suscripciones usando la misma lógica que en verifyCancellationTokenEmbed
+            $isActiveInBaremetrics = (
+                (isset($customer['is_active']) && $customer['is_active'] == true) ||
+                (isset($customer['is_active']) && $customer['is_active'] == 1)
+            ) && (
+                (isset($customer['is_canceled']) && $customer['is_canceled'] == false) ||
+                (isset($customer['is_canceled']) && $customer['is_canceled'] === '') ||
+                !isset($customer['is_canceled'])
+            );
+
+            $hasCurrentPlans = isset($customer['current_plans']) && 
+                              is_array($customer['current_plans']) && 
+                              !empty($customer['current_plans']);
+
+            if ($isActiveInBaremetrics && $hasCurrentPlans) {
+                $sourceId = $customer['source_id'] ?? null;
+                
+                if ($sourceId) {
+                    try {
+                        $allBaremetricsSubscriptions = $this->baremetricsService->getSubscriptions($sourceId);
+                        
+                        if ($allBaremetricsSubscriptions && isset($allBaremetricsSubscriptions['subscriptions'])) {
+                            foreach ($allBaremetricsSubscriptions['subscriptions'] as $bmSubscription) {
+                                $subscriptionCustomerOid = $bmSubscription['customer_oid'] ?? 
+                                                         $bmSubscription['customer']['oid'] ?? 
+                                                         $bmSubscription['customerOid'] ?? 
+                                                         null;
+                                
+                                if ($subscriptionCustomerOid === $customerId) {
+                                    $subscriptionPlanOid = $bmSubscription['plan_oid'] ?? 
+                                                          $bmSubscription['plan']['oid'] ?? 
+                                                          null;
+                                    
+                                    $matchesPlan = false;
+                                    $matchedPlan = null;
+                                    foreach ($customer['current_plans'] as $plan) {
+                                        if (($plan['oid'] ?? null) === $subscriptionPlanOid) {
+                                            $matchesPlan = true;
+                                            $matchedPlan = $plan;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if ($matchesPlan && ($bmSubscription['active'] ?? false)) {
+                                        $planData = [
+                                            'oid' => $subscriptionPlanOid ?? $matchedPlan['oid'],
+                                            'name' => $matchedPlan['name'] ?? $bmSubscription['plan']['name'] ?? 'Plan',
+                                            'amount' => isset($matchedPlan['amounts'][0]['amount']) ? $matchedPlan['amounts'][0]['amount'] / 100 : 0,
+                                            'currency' => strtoupper($matchedPlan['amounts'][0]['currency'] ?? 'USD'),
+                                            'interval' => $matchedPlan['interval'] ?? 'month',
+                                            'interval_count' => $matchedPlan['interval_count'] ?? 1
+                                        ];
+                                        
+                                        $subscriptionOid = $bmSubscription['oid'] ?? null;
+                                        
+                                        if ($subscriptionOid) {
+                                            $activeSubscriptions[] = [
+                                                'subscription' => (object)[
+                                                    'id' => $subscriptionOid,
+                                                    'customer' => $customerId,
+                                                    'status' => 'active'
+                                                ],
+                                                'plan' => $planData,
+                                                'customer_id' => $customerId,
+                                                'subscription_id' => $subscriptionOid,
+                                                'baremetrics_subscription_oid' => $subscriptionOid,
+                                                'baremetrics_plan_oid' => $subscriptionPlanOid,
+                                                'from_baremetrics' => true
+                                            ];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        \Log::warning('Error en helper recuperando de Baremetrics', [
+                            'source_id' => $sourceId,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+                
+                if (empty($activeSubscriptions)) {
+                    foreach ($customer['current_plans'] as $plan) {
+                        $planData = [
+                            'oid' => $plan['oid'] ?? $customerId,
+                            'name' => $plan['name'] ?? 'Plan',
+                            'amount' => isset($plan['amounts'][0]['amount']) ? $plan['amounts'][0]['amount'] / 100 : 0,
+                            'currency' => strtoupper($plan['amounts'][0]['currency'] ?? 'USD'),
+                            'interval' => $plan['interval'] ?? 'month',
+                            'interval_count' => $plan['interval_count'] ?? 1
+                        ];
+                        
+                        $activeSubscriptions[] = [
+                            'subscription' => (object)[
+                                'id' => $plan['oid'],
+                                'customer' => $customerId,
+                                'status' => 'active'
+                            ],
+                            'plan' => $planData,
+                            'customer_id' => $customerId,
+                            'subscription_id' => $plan['oid'],
+                            'baremetrics_plan_oid' => $plan['oid'],
+                            'from_baremetrics' => true,
+                            'is_fallback' => true
+                        ];
+                    }
+                }
+            }
+
+            // Fallback a Stripe si no hay de Baremetrics
+            if (empty($activeSubscriptions)) {
+                try {
+                    $stripeCustomers = [];
+                    try {
+                        $stripeCustomersResult = \Stripe\Customer::all([
+                            'email' => $email,
+                            'limit' => 10
+                        ]);
+                        $stripeCustomers = $stripeCustomersResult->data;
+                    } catch (\Exception $e) {
+                        \Log::debug('Error buscando en Stripe en helper', ['email' => $email]);
+                    }
+                    
+                    if (!empty($stripeCustomers)) {
+                        foreach ($stripeCustomers as $stripeCustomer) {
+                            try {
+                                $allSubscriptions = \Stripe\Subscription::all([
+                                    'customer' => $stripeCustomer->id,
+                                    'status' => 'all',
+                                    'limit' => 100
+                                ]);
+                                
+                                foreach ($allSubscriptions->data as $subscription) {
+                                    if ($subscription->status === 'active' || $subscription->status === 'trialing') {
+                                        $plan = [
+                                            'oid' => $subscription->plan->id,
+                                            'name' => $subscription->plan->nickname ?? 'Plan ' . ($subscription->plan->amount/100) . ' ' . strtoupper($subscription->plan->currency ?? 'USD'),
+                                            'amount' => $subscription->plan->amount/100,
+                                            'currency' => strtoupper($subscription->plan->currency ?? 'USD'),
+                                            'interval' => $subscription->plan->interval ?? 'month',
+                                            'interval_count' => $subscription->plan->interval_count ?? 1
+                                        ];
+                                        
+                                        $activeSubscriptions[] = [
+                                            'subscription' => $subscription,
+                                            'plan' => $plan,
+                                            'customer_id' => $customerId,
+                                            'subscription_id' => $subscription->id,
+                                            'from_baremetrics' => false
+                                        ];
+                                    }
+                                }
+                            } catch (\Exception $e) {
+                                \Log::warning('Error en helper recuperando de Stripe');
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Error general en fallback Stripe del helper');
+                }
+            }
+
+            return $activeSubscriptions;
+        } catch (\Exception $e) {
+            \Log::error('Error en getSessionActiveSubscriptions', [
+                'customer_id' => $customerId,
+                'email' => $email,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
     }
 }
