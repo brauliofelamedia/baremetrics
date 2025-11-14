@@ -53,10 +53,29 @@
 @endphp
 
 <script>
-!function(){if(window.barecancel&&window.barecancel.created)window.console&&console.error&&console.error("Barecancel snippet included twice.");else{window.barecancel={created:!0};var a=document.createElement("script");a.src="{{ config('services.baremetrics.barecancel_js_url') }}",a.async=!0;var b=document.getElementsByTagName("script")[0];b.parentNode.insertBefore(a,b),
+!function(){
+    if (window.barecancel && window.barecancel.created) {
+        window.console && console.error && console.error("Barecancel snippet included twice.");
+        return;
+    }
 
-window.barecancel.params = {!! $paramsJson !!};
-window.barecancel.params.callback_send = function(data) {
+    // Prepare params and validate before loading remote script to avoid 422 errors
+    window.barecancel = window.barecancel || {};
+    window.barecancel.created = true;
+
+    var _params = {!! $paramsJson !!};
+    console.log('Barecancel params:', _params);
+
+    // Basic validation: ensure required fields are present
+    if (!_params.customer_oid || _params.customer_oid === '') {
+        var msg = 'Falta customer_oid en los parámetros de Barecancel. No se cargará el script.';
+        console.error(msg, _params);
+        document.getElementById('message-loading').innerHTML = '<p style="font-size: 18px;font-family:Arial;color:red;">' + msg + '</p>';
+        return;
+    }
+
+    window.barecancel.params = _params;
+    window.barecancel.params.callback_send = function(data) {
     console.log('Barecancel completado - Baremetrics ya canceló automáticamente la suscripción', data);
     
     $('#message-loading').html('<p style="font-size: 18px;font-family:Arial;">¡Listo! Tu suscripción ha sido cancelada exitosamente. Gracias por completar la encuesta.</p>');
